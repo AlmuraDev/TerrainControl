@@ -22,14 +22,15 @@ public class TXRareBuildingGen extends MapGenScatteredFeature
     public TXRareBuildingGen(ServerConfigProvider configs) {
 
         this.biomeList = new ArrayList<Biome>();
+        System.out.println("TXRareBuildingGen Ins ->" + configs.getBiomeArray().length);
 
-        for (LocalBiome biome : configs.getBiomeArray())
-        {
-            if (biome == null)
+        for (LocalBiome biome : configs.getBiomeArray()) {
+            if (biome == null) {
                 continue;
-            if (biome.getBiomeConfig().rareBuildingType != RareBuildingType.disabled)
-            {
+            }
+            if (biome.getBiomeConfig().rareBuildingType != RareBuildingType.disabled) {
                 this.biomeList.add(((ForgeBiome) biome).getHandle());
+                //System.out.println("Added: " + biome.getName());
             }
         }
 
@@ -44,13 +45,11 @@ public class TXRareBuildingGen extends MapGenScatteredFeature
         int var3 = chunkX;
         int var4 = chunkZ;
 
-        if (chunkX < 0)
-        {
+        if (chunkX < 0) {
             chunkX -= this.maxDistanceBetweenScatteredFeatures - 1;
         }
 
-        if (chunkZ < 0)
-        {
+        if (chunkZ < 0) {
             chunkZ -= this.maxDistanceBetweenScatteredFeatures - 1;
         }
 
@@ -62,13 +61,11 @@ public class TXRareBuildingGen extends MapGenScatteredFeature
         var5 += random.nextInt(this.maxDistanceBetweenScatteredFeatures - this.minDistanceBetweenScatteredFeatures);
         var6 += random.nextInt(this.maxDistanceBetweenScatteredFeatures - this.minDistanceBetweenScatteredFeatures);
 
-        if (var3 == var5 && var4 == var6)
-        {
-            Biome biomeAtPosition = this.world.getBiomeProvider().getBiome(
-                    new BlockPos(var3 * 16 + 8, 0, var4 * 16 + 8));
+        if (var3 == var5 && var4 == var6) {
+            Biome biomeAtPosition = this.world.getBiomeProvider().getBiome(new BlockPos(var3 * 16 + 8, 0, var4 * 16 + 8));
 
-            if (this.biomeList.contains(biomeAtPosition))
-            {
+            if (this.biomeList.contains(biomeAtPosition)) {
+                System.out.println("RareBuildingGen Building:" + biomeAtPosition.biomeName + this.getStructureName() + " at: " + (var3 * 16 + 8) + "/" + (var4 * 16 + 8));
                 return true;
             }
         }
@@ -77,20 +74,17 @@ public class TXRareBuildingGen extends MapGenScatteredFeature
     }
 
     @Override
-    protected StructureStart getStructureStart(int chunkX, int chunkZ)
-    {
+    protected StructureStart getStructureStart(int chunkX, int chunkZ) {
         return new TXRareBuildingStart(this.world, this.rand, chunkX, chunkZ);
     }
 
     @Override
-    public String getStructureName()
-    {
+    public String getStructureName() {
         return StructureNames.RARE_BUILDING;
     }
 
     @Override
-    public BlockPos getNearestStructurePos(World worldIn, BlockPos pos, boolean p_180706_3_)
-    {
+    public BlockPos getNearestStructurePos(World worldIn, BlockPos pos, boolean p_180706_3_) {
         this.world = worldIn;
         return findNearestStructurePosBySpacing(worldIn, this, pos, this.maxDistanceBetweenScatteredFeatures, 8, 14357617, false, 100, p_180706_3_);
     }

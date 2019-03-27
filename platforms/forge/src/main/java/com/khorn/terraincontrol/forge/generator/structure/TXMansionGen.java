@@ -1,21 +1,25 @@
 package com.khorn.terraincontrol.forge.generator.structure;
 
+import com.google.common.collect.Lists;
 import com.khorn.terraincontrol.LocalBiome;
-import com.khorn.terraincontrol.TerrainControl;
 import com.khorn.terraincontrol.configuration.ServerConfigProvider;
 import com.khorn.terraincontrol.forge.ForgeBiome;
-import com.khorn.terraincontrol.logging.LogMarker;
 import com.khorn.terraincontrol.util.minecraftTypes.StructureNames;
-
 import net.minecraft.init.Biomes;
+import net.minecraft.init.Blocks;
+import net.minecraft.util.Rotation;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 import net.minecraft.world.biome.Biome;
 import net.minecraft.world.biome.BiomeProvider;
+import net.minecraft.world.chunk.ChunkPrimer;
 import net.minecraft.world.gen.ChunkGeneratorOverworld;
 import net.minecraft.world.gen.structure.MapGenStructure;
+import net.minecraft.world.gen.structure.StructureBoundingBox;
+import net.minecraft.world.gen.structure.StructureComponent;
 import net.minecraft.world.gen.structure.StructureStart;
 import net.minecraft.world.gen.structure.WoodlandMansion;
+import net.minecraft.world.gen.structure.WoodlandMansionPieces;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -54,9 +58,8 @@ public class TXMansionGen extends MapGenStructure
 
     private ChunkGeneratorOverworld getDefaultTerrainGenerator(World world)
     {
-        if (this.defaultTerrainGeneratorOrNull == null)
-        {
-            this.defaultTerrainGeneratorOrNull = new ChunkGeneratorOverworld(world, world.getSeed(), false, "")
+        if (this.defaultTerrainGeneratorOrNull == null) {
+            this.defaultTerrainGeneratorOrNull = new ChunkGeneratorOverworld(world, world.getSeed(), true, "")
             {
 
             };
@@ -132,5 +135,4 @@ public class TXMansionGen extends MapGenStructure
     {
         return new WoodlandMansion.Start(this.world, getDefaultTerrainGenerator(this.world), this.rand, chunkX, chunkZ);
     }
-
 }

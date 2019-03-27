@@ -110,10 +110,11 @@ public class TXBiomeProvider extends BiomeProvider
         for (int i2 = 0; i2 < n * i1; i2++)
         {
             Biome localBiomeBase = arrayOfInt[i2];
-            if (!allowed.contains(localBiomeBase))
+            if (!allowed.contains(localBiomeBase)) {
+                //System.out.println("Biome: " + localBiomeBase.biomeName + " Not Viable for Village Placement at: " + (x) + " / " + (z));
                 return false;
+            }
         }
-
         return true;
     }
 

@@ -750,7 +750,7 @@ public class BiomeConfig extends ConfigFile
                 "Whether Woodland Mansions are enabled in this biome.");
 
         writer.putSetting(BiomeStandardValues.VILLAGE_TYPE, villageType,
-                "The village type in this biome. Can be wood, sandstone or disabled.");
+                "The village type in this biome. Can be wood, sandstone, taiga, savanna or disabled.");
 
         writer.putSetting(BiomeStandardValues.MINESHAFT_TYPE, mineshaftType,
                 "The mineshaft type in this biome. Can be normal, mesa or disabled.");

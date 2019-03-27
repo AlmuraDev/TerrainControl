@@ -114,7 +114,7 @@ public class FrozenSurfaceHelper
             world.setBlock(x, y, z, frozenMaterial);
             if (worldConfig.fullyFreezeLakes && this.currentPropagationSize < this.maxPropagationSize)
             {
-                propagateFreeze(x, y, z);
+                //propagateFreeze(x, y, z);
             }
         }
 

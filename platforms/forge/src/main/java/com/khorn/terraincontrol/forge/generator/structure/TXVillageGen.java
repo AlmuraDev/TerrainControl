@@ -5,7 +5,6 @@ import com.khorn.terraincontrol.configuration.BiomeConfig.VillageType;
 import com.khorn.terraincontrol.configuration.ServerConfigProvider;
 import com.khorn.terraincontrol.forge.ForgeBiome;
 import com.khorn.terraincontrol.util.minecraftTypes.StructureNames;
-
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 import net.minecraft.world.biome.Biome;
@@ -30,6 +29,7 @@ public class TXVillageGen extends MapGenStructure
     private int size;
     private int distance;
     private int minimumDistance;
+    private int update = 0;
 
     public TXVillageGen(ServerConfigProvider configs)
     {
@@ -43,12 +43,14 @@ public class TXVillageGen extends MapGenStructure
         {
             if (biome == null)
                 continue;
-            if (biome.getBiomeConfig().villageType != VillageType.disabled)
-            {
+            if (biome.getBiomeConfig().villageType != VillageType.disabled) {
                 this.villageSpawnBiomes.add(((ForgeBiome) biome).getHandle());
+                System.out.println("Village: Biome Added: " + biome.getName());
             }
         }
     }
+
+
 
     @Override
     protected boolean canSpawnStructureAtCoords(int chunkX, int chunkZ)
@@ -68,12 +70,22 @@ public class TXVillageGen extends MapGenStructure
 
         int var5 = chunkX / this.distance;
         int var6 = chunkZ / this.distance;
+
+
         Random var7 = this.world.setRandomSeed(var5, var6, 10387312);
         var5 *= this.distance;
         var6 *= this.distance;
         var5 += var7.nextInt(this.distance - this.minimumDistance);
         var6 += var7.nextInt(this.distance - this.minimumDistance);
 
+        if (update++ == 1000) {
+            //System.out.println("---------------------------");
+            //Thread.dumpStack();
+            //System.out.println("Seed: " + world.getSeed());
+            //System.out.println("Var3: " + var3 + " Var5: " + var5 + " == " + (var3 == var5));
+            //System.out.println("Var4: " + var4 + " Var6: " + var6 + " == " + (var4 == var6));
+            update = 0;
+        }
         if (var3 == var5 && var4 == var6)
         {
             boolean canSpawn = this.world.getBiomeProvider().areBiomesViable(var3 * 16 + 8, var4 * 16 + 8, 0, this.villageSpawnBiomes);
@@ -83,13 +95,12 @@ public class TXVillageGen extends MapGenStructure
                 }
                 debugrun++;
             }
-            if (canSpawn)
-            {
-                System.out.println("Village spawned at: x:" + (chunkX * 16 + 8) + ", y: unknown , z: " + (chunkZ * 16 + 8));
+
+            if (canSpawn) {
+                System.out.println("Biome List Size: " + this.villageSpawnBiomes.size() + " Village spawned at: x:" + (var3 * 16 + 8) + ", y: unknown , z: " + (var4 * 16 + 8) + "- " + var7);
                 return true;
             }
         }
-
         return false;
     }
 

@@ -105,6 +105,7 @@ public class StandardBiomeTemplate
             new WeightedMobSpawnGroup(MobNames.SLIME, 100, 4, 4),
             new WeightedMobSpawnGroup(MobNames.ENDERMAN, 10, 1, 4),
             new WeightedMobSpawnGroup(MobNames.WITCH, 5, 1, 1));
+
     public List<WeightedMobSpawnGroup> defaultAmbientCreatures = Collections.singletonList(
             new WeightedMobSpawnGroup(MobNames.BAT, 10, 8, 8));
     public List<WeightedMobSpawnGroup> defaultWaterCreatures = Collections.singletonList(

@@ -1,5 +1,7 @@
 package com.khorn.terraincontrol.forge;
 
+import static com.khorn.terraincontrol.util.minecraftTypes.TreeType.BigTree;
+
 import com.google.common.base.Preconditions;
 import com.khorn.terraincontrol.*;
 import com.khorn.terraincontrol.configuration.*;
@@ -265,8 +267,9 @@ public class ForgeWorld implements LocalWorld
         WorldConfig worldConfig = this.settings.getWorldConfig();
 
         boolean isVillagePlaced = false;
-        if (worldConfig.strongholdsEnabled)
+        if (worldConfig.strongholdsEnabled) {
             this.strongholdGen.generateStructure(this.world, rand, chunkCoordIntPair);
+        }
         if (worldConfig.mineshaftsEnabled)
             this.mineshaftGen.generateStructure(this.world, rand, chunkCoordIntPair);
         if (worldConfig.villagesEnabled)
@@ -900,6 +903,7 @@ public class ForgeWorld implements LocalWorld
     public void spawnEntity(String id, float x, float y, float z, int amount, NamedBinaryTag metaOrNull)
     {
         String mobTypeName = MobNames.toInternalName(id);
+        System.out.println("Spawn Mob: " + id + " - Mob Name: " + mobTypeName);
         ResourceLocation entityResourceLocation = new ResourceLocation(mobTypeName);
         NBTTagCompound nbttagcompound = null;
         if (metaOrNull != null)
