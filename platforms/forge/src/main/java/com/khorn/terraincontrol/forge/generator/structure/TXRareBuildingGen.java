@@ -22,7 +22,7 @@ public class TXRareBuildingGen extends MapGenScatteredFeature
     public TXRareBuildingGen(ServerConfigProvider configs) {
 
         this.biomeList = new ArrayList<Biome>();
-        System.out.println("TXRareBuildingGen Ins ->" + configs.getBiomeArray().length);
+        //System.out.println("TXRareBuildingGen Ins ->" + configs.getBiomeArray().length);
 
         for (LocalBiome biome : configs.getBiomeArray()) {
             if (biome == null) {

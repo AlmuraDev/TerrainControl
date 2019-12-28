@@ -45,7 +45,7 @@ public class TXVillageGen extends MapGenStructure
                 continue;
             if (biome.getBiomeConfig().villageType != VillageType.disabled) {
                 this.villageSpawnBiomes.add(((ForgeBiome) biome).getHandle());
-                System.out.println("Village: Biome Added: " + biome.getName());
+                //System.out.println("Village: Biome Added: " + biome.getName());
             }
         }
     }
