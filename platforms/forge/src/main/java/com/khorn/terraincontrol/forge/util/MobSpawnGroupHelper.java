@@ -116,12 +116,22 @@ public final class MobSpawnGroupHelper
      * @param mobName The mob name.
      * @return The entity class, or null if not found.
      */
-    static Class<? extends EntityLiving> toMinecraftClass(String mobName)
-    {
+    static Class<? extends EntityLiving> toMinecraftClass(String mobName) {
+        boolean debug = true;
+        // Fix custom mobs specified as MODID.ENTITYNAME here.  Couldn't use : because of splits to the config earlier on.
+        if (mobName.contains(".")) {
+           mobName = mobName.replace(".", ":").toLowerCase();
+        }
         Class<? extends Entity> clazz = EntityList.getClass(new ResourceLocation(mobName));
         if (clazz != null && EntityLiving.class.isAssignableFrom(clazz))
         {
+            if (mobName.contains(":") && debug) {
+                TerrainControl.log(LogMarker.WARN, "Registered custom mob with class:  {}", clazz);
+            }
             return clazz.asSubclass(EntityLiving.class);
+        }
+        if (mobName.contains(":") && debug) {
+            TerrainControl.log(LogMarker.WARN, "Failed to register custom mob with name:  {}", mobName);
         }
         return null;
     }
