@@ -126,12 +126,12 @@ public final class MobSpawnGroupHelper
         if (clazz != null && EntityLiving.class.isAssignableFrom(clazz))
         {
             if (mobName.contains(":") && debug) {
-                TerrainControl.log(LogMarker.WARN, "Registered custom mob with class:  {}", clazz);
+                TerrainControl.log(LogMarker.INFO, "Registered custom entity with class:  {}", clazz);
             }
             return clazz.asSubclass(EntityLiving.class);
         }
         if (mobName.contains(":") && debug) {
-            TerrainControl.log(LogMarker.WARN, "Failed to register custom mob with name:  {}", mobName);
+            TerrainControl.log(LogMarker.WARN, "Failed to register custom entity with name:  {}", mobName);
         }
         return null;
     }
