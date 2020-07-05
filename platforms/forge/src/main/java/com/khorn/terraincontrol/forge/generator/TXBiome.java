@@ -37,10 +37,10 @@ public class TXBiome extends Biome
         this.skyColor = config.skyColor;
 
         // Mob spawning
-        addMobs(this.spawnableMonsterList, config.spawnMonsters);
-        addMobs(this.spawnableCreatureList, config.spawnCreatures);
-        addMobs(this.spawnableWaterCreatureList, config.spawnWaterCreatures);
-        addMobs(this.spawnableCaveCreatureList, config.spawnAmbientCreatures);
+        MobSpawnGroupHelper.addMobs(this.spawnableMonsterList, config.spawnMonsters, config, this);
+        MobSpawnGroupHelper.addMobs(this.spawnableCreatureList, config.spawnCreatures, config, this);
+        MobSpawnGroupHelper.addMobs(this.spawnableWaterCreatureList, config.spawnWaterCreatures, config, this);
+        MobSpawnGroupHelper.addMobs(this.spawnableCaveCreatureList, config.spawnAmbientCreatures, config, this);
     }
 
     /**
@@ -156,13 +156,6 @@ public class TXBiome extends Biome
         }
 
         return customBiome;
-    }
-
-    // Adds the mobs to the internal list
-    protected void addMobs(List<SpawnListEntry> internalList, List<WeightedMobSpawnGroup> configList)
-    {
-        internalList.clear();
-        internalList.addAll(MobSpawnGroupHelper.toMinecraftlist(configList));
     }
 
     // Sky color from Temp

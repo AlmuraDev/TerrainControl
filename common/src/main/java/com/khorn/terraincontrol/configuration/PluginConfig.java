@@ -41,6 +41,7 @@ public final class PluginConfig extends ConfigFile
 
     private LogLevels LogLevel = LogLevels.Standard;
     public String biomeConfigExtension;
+    public boolean useTCProvidedVanillaBiomeSpawnLists = false;
 
     public PluginConfig(SettingsMap settingsReader)
     {
@@ -77,6 +78,7 @@ public final class PluginConfig extends ConfigFile
     {
         this.SettingsMode = reader.getSetting(WorldStandardValues.SETTINGS_MODE);
         this.LogLevel = reader.getSetting(PluginStandardValues.LogLevel);
+        this.useTCProvidedVanillaBiomeSpawnLists = reader.getSetting(PluginStandardValues.useTCProvidedVanillaBiomeSpawnLists);
         this.biomeConfigExtension = reader.getSetting(BiomeStandardValues.BIOME_CONFIG_EXTENSION);
     }
 
@@ -94,6 +96,13 @@ public final class PluginConfig extends ConfigFile
                 "   WriteDisable         - Doesn't write to the config files, it only reads.",
                 "                          Doesn't auto-update the configs. Use with care!",
                 "Defaults to: WriteAll");
+
+        // The modes
+        writer.bigTitle("Biome Spawn Controls ");
+
+        writer.putSetting(PluginStandardValues.useTCProvidedVanillaBiomeSpawnLists, this.useTCProvidedVanillaBiomeSpawnLists,
+            "Use TC provided Vanilla Mob Spawn Lists and clear current built-in list.",
+            "Defaults to: false");
 
         // Custom biomes
         writer.bigTitle("Log Levels");

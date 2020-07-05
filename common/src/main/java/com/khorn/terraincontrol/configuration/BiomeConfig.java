@@ -311,21 +311,11 @@ public class BiomeConfig extends ConfigFile
         this.mineshaftType = settings.getSetting(BiomeStandardValues.MINESHAFT_TYPE, defaultSettings.defaultMineshaftType);
         this.rareBuildingType = settings.getSetting(BiomeStandardValues.RARE_BUILDING_TYPE, defaultSettings.defaultRareBuildingType);
 
-        if (this.defaultSettings.isCustomBiome)
-        {
-            // Modifying only works in custom biomes, so let the config file
-            // reflect that
-            this.spawnMonsters = settings.getSetting(BiomeStandardValues.SPAWN_MONSTERS, defaultSettings.defaultMonsters);
-            this.spawnCreatures = settings.getSetting(BiomeStandardValues.SPAWN_CREATURES, defaultSettings.defaultCreatures);
-            this.spawnWaterCreatures = settings.getSetting(BiomeStandardValues.SPAWN_WATER_CREATURES, defaultSettings.defaultWaterCreatures);
-            this.spawnAmbientCreatures = settings.getSetting(BiomeStandardValues.SPAWN_AMBIENT_CREATURES, defaultSettings.defaultAmbientCreatures);
-        } else
-        {
-            this.spawnMonsters = defaultSettings.defaultMonsters;
-            this.spawnCreatures = defaultSettings.defaultCreatures;
-            this.spawnWaterCreatures = defaultSettings.defaultWaterCreatures;
-            this.spawnAmbientCreatures = defaultSettings.defaultAmbientCreatures;
-        }
+        // Note: SpawnList changes now affect Vanilla Biomes!
+        this.spawnMonsters = settings.getSetting(BiomeStandardValues.SPAWN_MONSTERS, defaultSettings.defaultMonsters);
+        this.spawnCreatures = settings.getSetting(BiomeStandardValues.SPAWN_CREATURES, defaultSettings.defaultCreatures);
+        this.spawnWaterCreatures = settings.getSetting(BiomeStandardValues.SPAWN_WATER_CREATURES, defaultSettings.defaultWaterCreatures);
+        this.spawnAmbientCreatures = settings.getSetting(BiomeStandardValues.SPAWN_AMBIENT_CREATURES, defaultSettings.defaultAmbientCreatures);
 
         this.readCustomObjectSettings(settings);
         this.readResourceSettings(settings);

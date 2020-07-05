@@ -17,6 +17,7 @@ import com.khorn.terraincontrol.forge.util.WorldHelper;
 import com.khorn.terraincontrol.logging.LogMarker;
 import net.minecraft.command.ICommand;
 import net.minecraft.command.ICommandSender;
+import net.minecraft.entity.EnumCreatureType;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.text.TextComponentString;
@@ -79,7 +80,6 @@ final class TXCommandHandler implements ICommand
                 final BlockPos blockPos = sender.getPosition();
                 final World world = sender.getEntityWorld();
                 final Biome biome = world.getBiome(blockPos);
-
                 final int generationId = ((ForgeRegistry<Biome>) ForgeRegistries.BIOMES).getID(biome);
                 final int savedId = biome instanceof TXBiome ? ((TXBiome) biome).id.getSavedId() : generationId;
                 final boolean isVirtual = generationId > 256;
@@ -94,7 +94,13 @@ final class TXCommandHandler implements ICommand
                 {
                     builder.append(getKeyValueMessage("  Biome Base", "" + Biome.getBiome(savedId).getRegistryName().toString())).append("\n");
                 }
-                builder.append(getKeyValueMessage("Temperature", "" + biome.getTemperature(blockPos)));
+                builder.append(getKeyValueMessage("Temperature", "" + biome.getTemperature(blockPos))).append("\n");
+                builder.append(TextFormatting.AQUA + "Biome Spawn Lists...").append("\n");
+                builder.append(getKeyValueMessage("Ambient: ", "" + biome.getSpawnableList(EnumCreatureType.AMBIENT))).append("\n");
+                builder.append(getKeyValueMessage("Creatures: ", "" + biome.getSpawnableList(EnumCreatureType.CREATURE))).append("\n");
+                builder.append(getKeyValueMessage("Monsters: ", "" + biome.getSpawnableList(EnumCreatureType.MONSTER))).append("\n");
+                builder.append(getKeyValueMessage("Water Creatures: ", "" + biome.getSpawnableList(EnumCreatureType.WATER_CREATURE)));
+
 
                 sender.sendMessage(new TextComponentString(builder.toString()));
             } else if (argString[0].equalsIgnoreCase("print"))

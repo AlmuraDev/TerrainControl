@@ -1,8 +1,10 @@
 package com.khorn.terraincontrol.forge.util;
 
 import com.khorn.terraincontrol.TerrainControl;
+import com.khorn.terraincontrol.configuration.BiomeConfig;
 import com.khorn.terraincontrol.configuration.WeightedMobSpawnGroup;
 import com.khorn.terraincontrol.configuration.standard.MojangSettings.EntityCategory;
+import com.khorn.terraincontrol.forge.generator.TXBiome;
 import com.khorn.terraincontrol.logging.LogMarker;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityList;
@@ -90,12 +92,12 @@ public final class MobSpawnGroupHelper
      * @param weightedMobSpawnGroups The WeighedMobSpawnGroup collection.
      * @return The BiomeMeta list.
      */
-    public static List<SpawnListEntry> toMinecraftlist(Collection<WeightedMobSpawnGroup> weightedMobSpawnGroups)
+    public static List<SpawnListEntry> toMinecraftlist(Collection<WeightedMobSpawnGroup> weightedMobSpawnGroups, BiomeConfig biomeConfig, Biome biome)
     {
         List<SpawnListEntry> biomeList = new ArrayList<SpawnListEntry>();
         for (WeightedMobSpawnGroup mobGroup : weightedMobSpawnGroups)
         {
-            Class<? extends EntityLiving> entityClass = toMinecraftClass(mobGroup.getInternalName());
+            Class<? extends EntityLiving> entityClass = toMinecraftClass(mobGroup.getInternalName(), biomeConfig, biome);
             if (entityClass != null)
             {
                 biomeList.add(new SpawnListEntry(entityClass, mobGroup.getWeight(), mobGroup.getMin(), mobGroup.getMax()));
@@ -116,7 +118,7 @@ public final class MobSpawnGroupHelper
      * @param mobName The mob name.
      * @return The entity class, or null if not found.
      */
-    static Class<? extends EntityLiving> toMinecraftClass(String mobName) {
+    static Class<? extends EntityLiving> toMinecraftClass(String mobName, BiomeConfig biomeConfig, Biome biome) {
         boolean debug = true;
         // Fix custom mobs specified as MODID.ENTITYNAME here.  Couldn't use : because of splits to the config earlier on.
         if (mobName.contains(".")) {
@@ -126,12 +128,12 @@ public final class MobSpawnGroupHelper
         if (clazz != null && EntityLiving.class.isAssignableFrom(clazz))
         {
             if (mobName.contains(":") && debug) {
-                TerrainControl.log(LogMarker.INFO, "Registered custom entity with class:  {}", clazz);
+                TerrainControl.log(LogMarker.INFO, "Registered custom entity [" + mobName + "] from config file [" + biomeConfig.getName() + ".bc] for biome [" + biome.biomeName + "]");
             }
             return clazz.asSubclass(EntityLiving.class);
         }
         if (mobName.contains(":") && debug) {
-            TerrainControl.log(LogMarker.WARN, "Failed to register custom entity with name:  {}", mobName);
+            TerrainControl.log(LogMarker.WARN, "Failed to register custom entity [" + mobName + "] from config file [" + biomeConfig.getName() + ".bc] for biome [" + biome.biomeName + "]");
         }
         return null;
     }
@@ -149,5 +151,12 @@ public final class MobSpawnGroupHelper
         }
 
         return null;
+    }
+
+    // Adds the mobs to the internal list
+    public static void addMobs(List<SpawnListEntry> internalList, List<WeightedMobSpawnGroup> configList, BiomeConfig biomeConfig, Biome biome)
+    {
+        internalList.clear();
+        internalList.addAll(MobSpawnGroupHelper.toMinecraftlist(configList, biomeConfig, biome));
     }
 }

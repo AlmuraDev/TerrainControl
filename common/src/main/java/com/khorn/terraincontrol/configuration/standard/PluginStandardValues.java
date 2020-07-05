@@ -21,6 +21,7 @@ public class PluginStandardValues extends Settings
     
   //>>  Plugin Defaults
     public static final Setting<LogLevels> LogLevel = enumSetting("LogLevel", LogLevels.Standard);
+    public static final Setting<Boolean> useTCProvidedVanillaBiomeSpawnLists = booleanSetting("UseTCProvidedVanillaBiomeSpawnLists", false);
 
     /**
      * Name of the plugin, "TerrainControl".

@@ -1,7 +1,5 @@
 package com.khorn.terraincontrol.forge;
 
-import static com.khorn.terraincontrol.util.minecraftTypes.TreeType.BigTree;
-
 import com.google.common.base.Preconditions;
 import com.khorn.terraincontrol.*;
 import com.khorn.terraincontrol.configuration.*;
@@ -11,6 +9,7 @@ import com.khorn.terraincontrol.forge.feature.RandomPlantStateGenerator;
 import com.khorn.terraincontrol.forge.generator.TXBiome;
 import com.khorn.terraincontrol.forge.generator.TXChunkGenerator;
 import com.khorn.terraincontrol.forge.generator.structure.*;
+import com.khorn.terraincontrol.forge.util.MobSpawnGroupHelper;
 import com.khorn.terraincontrol.forge.util.NBTHelper;
 import com.khorn.terraincontrol.generator.SpawnableObject;
 import com.khorn.terraincontrol.generator.biome.BiomeGenerator;
@@ -27,6 +26,7 @@ import net.minecraft.client.multiplayer.WorldClient;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityList;
 import net.minecraft.entity.EntityLiving;
+import net.minecraft.entity.EnumCreatureType;
 import net.minecraft.init.Blocks;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
@@ -45,7 +45,6 @@ import net.minecraft.world.gen.feature.*;
 import net.minecraft.world.gen.structure.template.Template;
 import net.minecraft.world.gen.structure.template.TemplateManager;
 import net.minecraftforge.fml.common.FMLCommonHandler;
-import net.minecraftforge.fml.common.registry.ForgeRegistries;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
@@ -105,9 +104,18 @@ public class ForgeWorld implements LocalWorld
     }
 
     @Override
-    public LocalBiome createBiomeFor(BiomeConfig biomeConfig, BiomeIds biomeIds)
-    {
-        final Biome biome = TXBiome.getOrCreateBiome(biomeConfig, biomeIds);
+    public LocalBiome createBiomeFor(BiomeConfig biomeConfig, BiomeIds biomeIds) {
+        Biome biome = TXBiome.getOrCreateBiome(biomeConfig, biomeIds);
+
+        // The following code is dedicated to my kitty Scritch.
+        if (TerrainControl.getPluginConfig().useTCProvidedVanillaBiomeSpawnLists && (!(biome instanceof TXBiome))) {
+            // Add mobs back
+            TerrainControl.log(LogMarker.INFO, "Adding spawns to vanilla biome [" + biome.biomeName + "] from TC Biome provided config file: [" + biomeConfig.getName() +".bc]");
+            MobSpawnGroupHelper.addMobs(biome.getSpawnableList(EnumCreatureType.MONSTER), biomeConfig.spawnMonsters, biomeConfig, biome);
+            MobSpawnGroupHelper.addMobs(biome.getSpawnableList(EnumCreatureType.CREATURE), biomeConfig.spawnCreatures, biomeConfig, biome);
+            MobSpawnGroupHelper.addMobs(biome.getSpawnableList(EnumCreatureType.WATER_CREATURE), biomeConfig.spawnWaterCreatures, biomeConfig, biome);
+            MobSpawnGroupHelper.addMobs(biome.getSpawnableList(EnumCreatureType.AMBIENT), biomeConfig.spawnAmbientCreatures, biomeConfig, biome);
+        }
 
         final ForgeBiome forgeBiome = new ForgeBiome(biome, biomeConfig, biomeIds);
         this.biomeNames.put(forgeBiome.getName(), forgeBiome);
