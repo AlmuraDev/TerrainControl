@@ -28,12 +28,13 @@ public class TXBiome extends Biome
     private int skyColor;
 
     public final BiomeIds id;
+    public BiomeConfig biomeConfig;
 
     private TXBiome(BiomeConfig config, BiomeIds id)
     {
         super(new BiomePropertiesCustom(config));
         this.id = id;
-
+        this.biomeConfig = config;
         this.skyColor = config.skyColor;
 
         // Mob spawning
@@ -171,4 +172,7 @@ public class TXBiome extends Biome
         return "BiomeGenCustom of " + this.biomeName;
     }
 
+    public BiomeConfig getBiomeConfig() {
+        return biomeConfig;
+    }
 }

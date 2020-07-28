@@ -110,12 +110,12 @@ public class BiomeStandardValues extends Settings
     public static final Setting<ReplacedBlocksMatrix> REPLACED_BLOCKS = replacedBlocksSetting("ReplacedBlocks");
 
     // Deprecated settings
-    public static final Setting<Boolean> BIOME_RIVERS = booleanSetting("BiomeRivers", true),
+    public static final Setting<Boolean> BIOME_RIVERS = booleanSetting("BiomeRivers", false),
             DISABLE_NOTCH_PONDS = booleanSetting("DisableNotchPonds", false),
-            SPAWN_MONSTERS_ADD_DEFAULTS = booleanSetting("SpawnMonstersAddDefaults", true),
-            SPAWN_CREATURES_ADD_DEFAULTS = booleanSetting("SpawnCreaturesAddDefaults", true),
-            SPAWN_WATER_CREATURES_ADD_DEFAULTS = booleanSetting("SpawnWaterCreaturesAddDefaults", true),
-            SPAWN_AMBIENT_CREATURES_ADD_DEFAULTS = booleanSetting("SpawnAmbientCreaturesAddDefaults", true);
+            SPAWN_MONSTERS_ADD_DEFAULTS = booleanSetting("SpawnMonstersAddDefaults", false),
+            SPAWN_CREATURES_ADD_DEFAULTS = booleanSetting("SpawnCreaturesAddDefaults", false),
+            SPAWN_WATER_CREATURES_ADD_DEFAULTS = booleanSetting("SpawnWaterCreaturesAddDefaults", false),
+            SPAWN_AMBIENT_CREATURES_ADD_DEFAULTS = booleanSetting("SpawnAmbientCreaturesAddDefaults", false);
 
     /**
      * Used to read ReplacedBlocks as a string, so that conversion to the new

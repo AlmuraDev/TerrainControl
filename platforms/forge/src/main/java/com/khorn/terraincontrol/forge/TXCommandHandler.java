@@ -9,6 +9,7 @@ import java.util.stream.Collectors;
 import com.khorn.terraincontrol.LocalBiome;
 import com.khorn.terraincontrol.LocalWorld;
 import com.khorn.terraincontrol.TerrainControl;
+import com.khorn.terraincontrol.configuration.BiomeConfigFinder;
 import com.khorn.terraincontrol.configuration.WorldConfig;
 import com.khorn.terraincontrol.configuration.standard.PluginStandardValues;
 import com.khorn.terraincontrol.forge.generator.TXBiome;
@@ -80,6 +81,7 @@ final class TXCommandHandler implements ICommand
                 final BlockPos blockPos = sender.getPosition();
                 final World world = sender.getEntityWorld();
                 final Biome biome = world.getBiome(blockPos);
+
                 final int generationId = ((ForgeRegistry<Biome>) ForgeRegistries.BIOMES).getID(biome);
                 final int savedId = biome instanceof TXBiome ? ((TXBiome) biome).id.getSavedId() : generationId;
                 final boolean isVirtual = generationId > 256;
@@ -87,8 +89,13 @@ final class TXCommandHandler implements ICommand
                 final StringBuilder builder = new StringBuilder();
                 builder.append(TextFormatting.DARK_GREEN + "Current Biome Data...").append("\n");
                 builder.append(getKeyValueMessage("ID", "" + generationId)).append("\n");
+                builder.append(getKeyValueMessage("Name", "" + biome.biomeName)).append("\n");
                 builder.append(getKeyValueMessage("Saved ID", "" + savedId)).append("\n");
                 builder.append(getKeyValueMessage("Registry Key", biome.getRegistryName().toString())).append("\n");
+                if (biome instanceof TXBiome) {
+                    TXBiome txBiome = (TXBiome) biome;
+                    builder.append(getKeyValueMessage("Config: ", "" + txBiome.biomeConfig.getName() + ".bc")).append("\n");
+                }
                 builder.append(getKeyValueMessage("IsVirtual", "" + (generationId != savedId))).append("\n");
                 if (isVirtual)
                 {
