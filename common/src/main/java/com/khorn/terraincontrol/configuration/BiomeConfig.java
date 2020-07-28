@@ -1,5 +1,8 @@
 package com.khorn.terraincontrol.configuration;
 
+import static com.khorn.terraincontrol.logging.LogMarker.ERROR;
+import static com.khorn.terraincontrol.logging.LogMarker.WARN;
+
 import com.khorn.terraincontrol.LocalMaterialData;
 import com.khorn.terraincontrol.TerrainControl;
 import com.khorn.terraincontrol.configuration.ReplacedBlocksMatrix.ReplacedBlocksInstruction;
@@ -25,8 +28,7 @@ import java.io.DataOutput;
 import java.io.IOException;
 import java.util.*;
 
-public class BiomeConfig extends ConfigFile
-{
+public class BiomeConfig extends ConfigFile {
     public String biomeExtends;
     private boolean doResourceInheritance = true;
 
@@ -312,10 +314,14 @@ public class BiomeConfig extends ConfigFile
         this.rareBuildingType = settings.getSetting(BiomeStandardValues.RARE_BUILDING_TYPE, defaultSettings.defaultRareBuildingType);
 
         // Note: SpawnList changes now affect Vanilla Biomes!
-        this.spawnMonsters = settings.getSetting(BiomeStandardValues.SPAWN_MONSTERS, defaultSettings.defaultMonsters);
-        this.spawnCreatures = settings.getSetting(BiomeStandardValues.SPAWN_CREATURES, defaultSettings.defaultCreatures);
-        this.spawnWaterCreatures = settings.getSetting(BiomeStandardValues.SPAWN_WATER_CREATURES, defaultSettings.defaultWaterCreatures);
-        this.spawnAmbientCreatures = settings.getSetting(BiomeStandardValues.SPAWN_AMBIENT_CREATURES, defaultSettings.defaultAmbientCreatures);
+        try {
+            this.spawnMonsters = settings.getSetting(BiomeStandardValues.SPAWN_MONSTERS, defaultSettings.defaultMonsters);
+            this.spawnCreatures = settings.getSetting(BiomeStandardValues.SPAWN_CREATURES, defaultSettings.defaultCreatures);
+            this.spawnWaterCreatures = settings.getSetting(BiomeStandardValues.SPAWN_WATER_CREATURES, defaultSettings.defaultWaterCreatures);
+            this.spawnAmbientCreatures = settings.getSetting(BiomeStandardValues.SPAWN_AMBIENT_CREATURES, defaultSettings.defaultAmbientCreatures);
+        } catch (Exception e) {
+            TerrainControl.log(ERROR, "Invalid value detected in spawn list biome configuration [" + this.getName()+ ".bc]");
+        }
 
         this.readCustomObjectSettings(settings);
         this.readResourceSettings(settings);
@@ -391,8 +397,7 @@ public class BiomeConfig extends ConfigFile
     }
 
     @Override
-    protected void writeConfigSettings(SettingsMap writer)
-    {
+    protected void writeConfigSettings(SettingsMap writer) {
 
         writer.bigTitle("Biome Inheritance");
 
@@ -788,17 +793,10 @@ public class BiomeConfig extends ConfigFile
                     "");
         }
 
-        writer.putSetting(BiomeStandardValues.SPAWN_MONSTERS, this.spawnMonsters,
-                "The monsters (skeletons, zombies, etc.) that spawn in this biome");
-
-        writer.putSetting(BiomeStandardValues.SPAWN_CREATURES, this.spawnCreatures,
-                "The friendly creatures (cows, pigs, etc.) that spawn in this biome");
-
-        writer.putSetting(BiomeStandardValues.SPAWN_WATER_CREATURES, this.spawnWaterCreatures,
-                "The water creatures (only squids in vanilla) that spawn in this biome");
-
-        writer.putSetting(BiomeStandardValues.SPAWN_AMBIENT_CREATURES, this.spawnAmbientCreatures,
-                "The ambient creatures (only bats in vanila) that spawn in this biome");
+        writer.putSetting(BiomeStandardValues.SPAWN_MONSTERS, this.spawnMonsters, "The monsters (skeletons, zombies, etc.) that spawn in this biome");
+        writer.putSetting(BiomeStandardValues.SPAWN_CREATURES, this.spawnCreatures, "The friendly creatures (cows, pigs, etc.) that spawn in this biome");
+        writer.putSetting(BiomeStandardValues.SPAWN_WATER_CREATURES, this.spawnWaterCreatures, "The water creatures (only squids in vanilla) that spawn in this biome");
+        writer.putSetting(BiomeStandardValues.SPAWN_AMBIENT_CREATURES, this.spawnAmbientCreatures, "The ambient creatures (only bats in vanila) that spawn in this biome");
     }
 
     private void writeCustomObjects(SettingsMap writer)
