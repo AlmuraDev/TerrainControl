@@ -45,6 +45,9 @@ public final class ServerConfigProvider implements ConfigProvider
     private CustomObjectCollection customObjects;
     private WorldConfig worldConfig;
 
+    // Write back Biome Config File
+    public boolean overwriteConfigFile = false;
+
     /**
      * Holds all biome configs. Generation Id => BiomeConfig
      * <p>
@@ -212,7 +215,9 @@ public final class ServerConfigProvider implements ConfigProvider
             {
                 writeFile = new File(writeFile.getAbsolutePath() + ".inherited");
             }
-            FileSettingsWriter.writeToFile(biomeConfig.getSettingsAsMap(), writeFile, worldConfig.SettingsMode);
+            if (overwriteConfigFile) {
+                FileSettingsWriter.writeToFile(biomeConfig.getSettingsAsMap(), writeFile, worldConfig.SettingsMode);
+            }
         }
 
         return loadedBiomes;
