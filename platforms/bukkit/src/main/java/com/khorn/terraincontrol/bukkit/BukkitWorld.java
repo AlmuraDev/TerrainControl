@@ -155,6 +155,11 @@ public class BukkitWorld implements LocalWorld
         return standardBiomes;
     }
 
+    @Override public int getVanillaBiomesUpdates() {
+        // Drop dead bukkit.
+        return 0;
+    }
+
     @Override
     public void prepareDefaultStructures(int chunkX, int chunkZ, boolean dry)
     {

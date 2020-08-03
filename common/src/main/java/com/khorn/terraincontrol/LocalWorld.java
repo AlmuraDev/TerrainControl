@@ -47,6 +47,8 @@ public interface LocalWorld
 
     public Collection<? extends BiomeLoadInstruction> getDefaultBiomes();
 
+    public int getVanillaBiomesUpdates();
+
     // Biome manager
     /**
      * Gets the biome generator.

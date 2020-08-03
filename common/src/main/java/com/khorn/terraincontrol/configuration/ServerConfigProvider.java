@@ -86,8 +86,7 @@ public final class ServerConfigProvider implements ConfigProvider
      * nulls), the savedBiomes collection to be empty and the biomesCount
      * field to be zero.
      */
-    private void loadSettings()
-    {
+    private void loadSettings() {
         loadCustomObjects();
 
         SettingsMap worldConfigSettings = loadWorldConfig();
@@ -98,14 +97,12 @@ public final class ServerConfigProvider implements ConfigProvider
         worldConfig.biomeGroupManager.processBiomeData(world);
     }
 
-    private void loadCustomObjects()
-    {
+    private void loadCustomObjects() {
         File worldObjectsDir = new File(settingsDir, WorldStandardValues.WORLD_OBJECTS_DIRECTORY_NAME);
 
         // Migrate folders
         File oldWorldObjectsDir = new File(settingsDir, "BOBPlugins");
-        if (!FileHelper.migrateFolder(oldWorldObjectsDir, worldObjectsDir))
-        {
+        if (!FileHelper.migrateFolder(oldWorldObjectsDir, worldObjectsDir)) {
             TerrainControl.log(LogMarker.WARN, "Failed to move old world"
                     + " custom objects from {} to {} in world {}."
                     + " Please move the old objects manually.",
@@ -165,6 +162,7 @@ public final class ServerConfigProvider implements ConfigProvider
         String loadedBiomeNames = indexSettings(loadedBiomes);
 
         TerrainControl.log(LogMarker.INFO, "{} biomes Loaded", biomesCount);
+        TerrainControl.log(LogMarker.INFO, "{} vanilla biomes updated with custom Mob Spawning entries", world.getVanillaBiomesUpdates());
         TerrainControl.log(LogMarker.DEBUG, "{}", loadedBiomeNames);
     }
 

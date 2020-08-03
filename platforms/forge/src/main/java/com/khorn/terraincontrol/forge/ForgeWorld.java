@@ -97,6 +97,8 @@ public class ForgeWorld implements LocalWorld
     private Chunk[] chunkCache;
     private Random random = new Random();
 
+    public int vanillaBiomesUpdated = 0;
+
     ForgeWorld(String _name)
     {
         this.name = _name;
@@ -110,7 +112,8 @@ public class ForgeWorld implements LocalWorld
         // The following code is dedicated to my kitty Scritch.
         if (TerrainControl.getPluginConfig().useTCProvidedVanillaBiomeSpawnLists && (!(biome instanceof TXBiome))) {
             // Add mobs back
-            TerrainControl.log(LogMarker.INFO, "Adding spawns to vanilla biome [" + biome.biomeName + "] from TC Biome provided config file: [" + biomeConfig.getName() +".bc]");
+            //TerrainControl.log(LogMarker.INFO, "Adding spawns to vanilla biome [" + biome.biomeName + "] from TC Biome provided config file: [" + biomeConfig.getName() +".bc]");
+            vanillaBiomesUpdated++;
             MobSpawnGroupHelper.addMobs(biome.getSpawnableList(EnumCreatureType.MONSTER), biomeConfig.spawnMonsters, biomeConfig, biome);
             MobSpawnGroupHelper.addMobs(biome.getSpawnableList(EnumCreatureType.CREATURE), biomeConfig.spawnCreatures, biomeConfig, biome);
             MobSpawnGroupHelper.addMobs(biome.getSpawnableList(EnumCreatureType.WATER_CREATURE), biomeConfig.spawnWaterCreatures, biomeConfig, biome);
@@ -176,6 +179,10 @@ public class ForgeWorld implements LocalWorld
         }
 
         return standardBiomes;
+    }
+
+    @Override public int getVanillaBiomesUpdates() {
+        return this.vanillaBiomesUpdated;
     }
 
     @Override

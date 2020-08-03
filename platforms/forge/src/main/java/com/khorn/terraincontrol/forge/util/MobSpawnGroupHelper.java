@@ -4,7 +4,6 @@ import com.khorn.terraincontrol.TerrainControl;
 import com.khorn.terraincontrol.configuration.BiomeConfig;
 import com.khorn.terraincontrol.configuration.WeightedMobSpawnGroup;
 import com.khorn.terraincontrol.configuration.standard.MojangSettings.EntityCategory;
-import com.khorn.terraincontrol.forge.generator.TXBiome;
 import com.khorn.terraincontrol.logging.LogMarker;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityList;
@@ -128,7 +127,8 @@ public final class MobSpawnGroupHelper
         if (clazz != null && EntityLiving.class.isAssignableFrom(clazz))
         {
             if (mobName.contains(":") && debug) {
-                TerrainControl.log(LogMarker.INFO, "Registered custom entity [" + mobName + "] from config file [" + biomeConfig.getName() + ".bc] for biome [" + biome.biomeName + "]");
+                // Todo: debug here
+                //TerrainControl.log(LogMarker.INFO, "Registered custom entity [" + mobName + "] from config file [" + biomeConfig.getName() + ".bc] for biome [" + biome.biomeName + "]");
             }
             return clazz.asSubclass(EntityLiving.class);
         }
