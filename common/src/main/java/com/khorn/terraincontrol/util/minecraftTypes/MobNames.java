@@ -30,7 +30,7 @@ public enum MobNames
     ILLUSIONER("illusion_illager", "IllusionIllager", "illusionillager", "Illusioner", "illusioner"),
     IRON_GOLEM("villager_golem", "VillagerGolem", "villagergolem", "IronGolem", "irongolem", "iron_golem"),
     LLAMA("llama", "Llama", "LLama"),
-    MAGMA_CUBE("magma_cube", "LavaSlime", "lavaslime", "lava_slime", "magmacube"),
+    MAGMA_CUBE("magma_cube", "LavaSlime", "lavaslime", "lava_slime", "magmacube", "MagmaCube"),
     MULE("mule", "Mule"),
     MUSHROOM_COW("mooshroom", "MushroomCow", "mushroomcow", "shroom", "moshoom", "mcow", "shroomcow"),
     OCELOT("ocelot", "Ozelot", "ozelot", "Ocelot"),

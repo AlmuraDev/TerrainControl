@@ -1,6 +1,6 @@
 {
     "required": true,
-    "minVersion": "0.7.4",
+    "minVersion": "0.8",
     "package": "com.khorn.terraincontrol.forge.asm.mixin.core",
     "refmap": "mixins.terraincontrol.refmap.json",
     "target": "@env(DEFAULT)",

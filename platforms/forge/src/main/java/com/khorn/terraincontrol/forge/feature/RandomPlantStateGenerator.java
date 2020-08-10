@@ -14,7 +14,7 @@ public class RandomPlantStateGenerator {
     public static IBlockState randomCrop(World worldIn, BlockPos blockPos, Random random) {
         String plantName = "";
         int plantAge = 0;
-        int plant = random.nextInt(64); // Total Crops
+        int plant = random.nextInt(71); // Total Crops
 
         if (plant == 0) {
             plantName = "almura:crop/agave";
@@ -211,6 +211,30 @@ public class RandomPlantStateGenerator {
         } else if (plant == 64) {
             plantName = "almura:crop/white_grape";
             plantAge = 3;
+        } else if (plant == 65) {
+            plantName = "almura:crop/cantaloupe";
+            plantAge = 5;
+        } else if (plant == 66) {
+            plantName = "almura:crop/cardamon";
+            plantAge = 5;
+        }  else if (plant == 66) {
+            plantName = "almura:crop/cinnamon";
+            plantAge = 5;
+        }  else if (plant == 67) {
+            plantName = "almura:crop/ginger_root";
+            plantAge = 5;
+        }  else if (plant == 68) {
+            plantName = "almura:crop/popcorn";
+            plantAge = 4;
+        }  else if (plant == 69) {
+            plantName = "almura:crop/sesame";
+            plantAge = 5;
+        }  else if (plant == 70) {
+            plantName = "almura:crop/sweetcorn";
+            plantAge = 4;
+        }  else if (plant == 71) {
+            plantName = "almura:crop/vanilla_bean";
+            plantAge = 5;
         }
 
         if (debug) {
