@@ -9,11 +9,11 @@ buildscript
                         jcenter()
                         maven {
                             name = 'forge'
-                            url = 'http://files.minecraftforge.net/maven/'
+                            url = 'https://files.minecraftforge.net/maven/'
                         }
                         maven {
                             name = 'sponge'
-                            url = 'http://repo.spongepowered.org/maven'
+                            url = 'https://repo.spongepowered.org/maven'
                         }
                     }
             dependencies
@@ -61,7 +61,7 @@ repositories
             maven
                     {
                         name = 'forge'
-                        url = 'http://files.minecraftforge.net/maven/'
+                        url = 'https://files.minecraftforge.net/maven/'
                     }
             maven
                     {
@@ -71,7 +71,7 @@ repositories
             maven
                     {
                         name = 'sponge'
-                        url = 'http://repo.spongepowered.org/maven'
+                        url = 'https://repo.spongepowered.org/maven'
                     }
         }
 
