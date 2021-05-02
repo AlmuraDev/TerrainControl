@@ -9,7 +9,7 @@ buildscript
                         jcenter()
                         maven {
                             name = 'forge'
-                            url = 'https://files.minecraftforge.net/maven/'
+                            url = 'https://mvnrepository.com/artifact/net.minecraftforge'
                         }
                         maven {
                             name = 'sponge'
@@ -19,8 +19,8 @@ buildscript
             dependencies
                     {
                         classpath 'com.github.jengelman.gradle.plugins:shadow:2.0.1'
-                        classpath 'net.minecraftforge.gradle:ForgeGradle:2.3-SNAPSHOT'
-                        classpath 'org.spongepowered:mixingradle:0.4+'
+                        classpath 'net.minecraftforge.gradle:ForgeGradle:2.3-+'
+                        classpath 'org.spongepowered:mixingradle:0.6+'
                     }
         }
 
@@ -40,11 +40,10 @@ ext.forgeVersion =
         }
 
 minecraft {
-    version = "1.12.2-14.23.1.2586"
-    mappings = 'snapshot_20171007'
+    version = "1.12.2-14.23.5.2838"
+    mappings = 'snapshot_20180808'
     runDir = 'run'
     useDepAts = true
-
     coreMod = 'com.khorn.terraincontrol.forge.TerrainControlLoadingPlugin'
 
     // We don't use the obfuscated dev jar currently
@@ -54,26 +53,27 @@ minecraft {
 deobfMcMCP {failOnAtError = false}
 deobfMcSRG {failOnAtError = false}
 
-repositories
-        {
-            mavenLocal()
-            mavenCentral()
-            maven
-                    {
-                        name = 'forge'
-                        url = 'https://files.minecraftforge.net/maven/'
-                    }
-            maven
-                    {
-                        name = 'oss-sonatype-public'
-                        url = 'https://oss.sonatype.org/content/repositories/public/'
-                    }
-            maven
-                    {
-                        name = 'sponge'
-                        url = 'https://repo.spongepowered.org/maven'
-                    }
-        }
+repositories {
+    // These three always first!!!
+    mavenLocal()
+    mavenCentral()
+    flatDir {
+        dirs "lib"
+    }
+    // Any maven repo offline can cause the buildscript to fail during AT Extraction!
+    maven {
+        name = 'forge'
+        url = 'https://mvnrepository.com/artifact/net.minecraftforge'
+    }
+    maven {
+        name = 'oss-sonatype-public'
+        url = 'https://oss.sonatype.org/content/groups/public/'
+    }
+    maven {
+        name = 'sponge'
+        url = 'https://repo.spongepowered.org/maven'
+    }
+}
 
 dependencies
         {

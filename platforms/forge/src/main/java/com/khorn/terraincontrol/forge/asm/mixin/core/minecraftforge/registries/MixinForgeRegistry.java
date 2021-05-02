@@ -25,7 +25,7 @@ public abstract class MixinForgeRegistry implements IMixinForgeRegistry {
     @Inject(method = "loadIds", at = @At("HEAD"))
     private void onLoadIds(Map<ResourceLocation, Integer> ids, Map<ResourceLocation, String> overrides, Map<ResourceLocation, Integer> missing,
             Map<ResourceLocation, Integer[]> remapped, ForgeRegistry<?> old, ResourceLocation name, CallbackInfo ci) {
-        ids.keySet().removeIf(next -> next.getResourceDomain().equalsIgnoreCase("terraincontrol"));
+        ids.keySet().removeIf(next -> next.getNamespace().equalsIgnoreCase("terraincontrol"));
     }
 
     @Override

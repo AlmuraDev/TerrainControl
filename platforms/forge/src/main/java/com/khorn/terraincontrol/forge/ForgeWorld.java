@@ -386,7 +386,7 @@ public class ForgeWorld implements LocalWorld
         {
             // Blocks requested outside population step
             // (Tree growing, /tc spawn, etc.)
-            return this.world.getChunkFromChunkCoords(chunkX, chunkZ);
+            return this.world.getChunk(chunkX, chunkZ);
         }
 
         // Restrict to chunks we are currently populating
@@ -631,7 +631,7 @@ public class ForgeWorld implements LocalWorld
         {
             for (int indexZ = 0; indexZ <= 1; indexZ++)
             {
-                chunkCache[indexX | (indexZ << 1)] = this.world.getChunkFromChunkCoords(
+                chunkCache[indexX | (indexZ << 1)] = this.world.getChunk(
                         topLeft.getChunkX() + indexX,
                         topLeft.getChunkZ() + indexZ
                 );
@@ -891,7 +891,7 @@ public class ForgeWorld implements LocalWorld
     {
         ChunkProviderServer chunkProviderServer = (ChunkProviderServer) this.world.getChunkProvider();
         long i = ChunkPos.asLong(chunkX, chunkZ);
-        return chunkProviderServer.id2ChunkMap.get(i);
+        return chunkProviderServer.loadedChunks.get(i);
     }
 
     private Entity createEntity(ResourceLocation entityResource, NBTTagCompound optionalMeta)

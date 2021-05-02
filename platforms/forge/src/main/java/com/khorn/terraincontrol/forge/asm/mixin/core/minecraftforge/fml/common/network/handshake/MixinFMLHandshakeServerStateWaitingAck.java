@@ -30,6 +30,6 @@ public abstract class MixinFMLHandshakeServerStateWaitingAck {
     )
     private void removeTerrainControlFromBiomeSnapshot(final ChannelHandlerContext ctx, final FMLHandshakeMessage msg, final Consumer<?> consumer, final CallbackInfo ci, final Map<ResourceLocation, ForgeRegistry.Snapshot> snapshot) {
         // Strip client requirement of having biomes match server
-        snapshot.get(new ResourceLocation("minecraft", "biomes")).ids.keySet().removeIf(location -> location.getResourceDomain().equals("terraincontrol"));
+        snapshot.get(new ResourceLocation("minecraft", "biomes")).ids.keySet().removeIf(location -> location.getNamespace().equals("terraincontrol"));
     }
 }
