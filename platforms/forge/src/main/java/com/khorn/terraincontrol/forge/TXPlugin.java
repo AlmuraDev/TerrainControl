@@ -21,6 +21,12 @@ import java.io.File;
 @Mod(modid = "terraincontrol", name = "TerrainControl", acceptableRemoteVersions = "*")
 public class TXPlugin
 {
+    /**
+     * Switch for the debug messages TC prints to the console while generating (structures spawned, mobs
+     * spawned, Almura crops and flowers placed, ...). Set to true and rebuild to see them again.
+     */
+    public static final boolean DEBUG_OUTPUT = false;
+
     @Mod.Instance
     public static TXPlugin instance;
 

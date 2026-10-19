@@ -111,13 +111,14 @@ public abstract class Layer
 
     // [ Biome Group Data ]
     protected static final int BiomeGroupShift = 17;        // Shift amount for biome group data
-    protected static final int BiomeGroupBits = 127 >> BiomeGroupShift;   // 17th-23rd Bits
+    // (Was 127 >> 17, which is 0, so no biome from a BiomeGroup was ever placed in Normal mode)
+    protected static final int BiomeGroupBits = 127 << BiomeGroupShift;   // 17th-23rd Bits
 
     // [ River Data ]
-    protected static final int RiverShift = 23;
-    protected static final int RiverBits = (3 << RiverShift);               // 23rd-24th Bits
-    protected static final int RiverBitOne = (1 << RiverShift);             // 23rd Bit
-    protected static final int RiverBitTwo = (1 << (RiverShift + 1));       // 24th Bit
+    protected static final int RiverShift = 24;                            // After the biome group bits
+    protected static final int RiverBits = (3 << RiverShift);               // 24th-25th Bits
+    protected static final int RiverBitOne = (1 << RiverShift);             // 24th Bit
+    protected static final int RiverBitTwo = (1 << (RiverShift + 1));       // 25th Bit
 
     /**
      * In a single step, checks for land and when present returns biome data

@@ -1,5 +1,6 @@
 package com.khorn.terraincontrol.forge.feature;
 
+import com.khorn.terraincontrol.forge.TXPlugin;
 import net.minecraft.block.Block;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.util.math.BlockPos;
@@ -238,7 +239,7 @@ public class RandomPlantStateGenerator {
         }
 
         if (debug) {
-            System.out.println("RandomPlantStateGenerator - Crop: " + plantName + " at: " + blockPos);
+            if (TXPlugin.DEBUG_OUTPUT) System.out.println("RandomPlantStateGenerator - Crop: " + plantName + " at: " + blockPos);
         }
 
         final Block block = Block.getBlockFromName(plantName);
@@ -411,7 +412,7 @@ public class RandomPlantStateGenerator {
         }
 
         if (debug) {
-            System.out.println("RandomPlantStateGenerator - Flower: " + plantName + " at: " + blockPos);
+            if (TXPlugin.DEBUG_OUTPUT) System.out.println("RandomPlantStateGenerator - Flower: " + plantName + " at: " + blockPos);
         }
 
         final Block block = Block.getBlockFromName(plantName);
@@ -453,7 +454,7 @@ public class RandomPlantStateGenerator {
 
 
         if (debug) {
-            System.out.println("RandomPlantStateGenerator - Desert Plant: " + plantName + " at: " + blockPos);
+            if (TXPlugin.DEBUG_OUTPUT) System.out.println("RandomPlantStateGenerator - Desert Plant: " + plantName + " at: " + blockPos);
         }
 
         final Block block = Block.getBlockFromName(plantName);
@@ -474,7 +475,7 @@ public class RandomPlantStateGenerator {
         }
 
         if (debug) {
-            System.out.println("RandomPlantStateGenerator - Ice Flower: " + plantName + " at: " + blockPos);
+            if (TXPlugin.DEBUG_OUTPUT) System.out.println("RandomPlantStateGenerator - Ice Flower: " + plantName + " at: " + blockPos);
         }
 
         final Block block = Block.getBlockFromName(plantName);

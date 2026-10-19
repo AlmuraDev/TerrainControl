@@ -1,5 +1,6 @@
 package com.khorn.terraincontrol.forge.generator.structure;
 
+import com.khorn.terraincontrol.forge.TXPlugin;
 import com.google.common.collect.Lists;
 import com.khorn.terraincontrol.LocalBiome;
 import com.khorn.terraincontrol.configuration.ServerConfigProvider;
@@ -59,10 +60,14 @@ public class TXMansionGen extends MapGenStructure
     private ChunkGeneratorOverworld getDefaultTerrainGenerator(World world)
     {
         if (this.defaultTerrainGeneratorOrNull == null) {
+            // The vanilla constructor sets the world's sea level to vanilla's 63, overwriting the
+            // WaterLevelMax that ForgeWorld set, so put it back afterwards
+            final int seaLevel = world.getSeaLevel();
             this.defaultTerrainGeneratorOrNull = new ChunkGeneratorOverworld(world, world.getSeed(), true, "")
             {
 
             };
+            world.setSeaLevel(seaLevel);
         }
         return this.defaultTerrainGeneratorOrNull;
     }
@@ -109,7 +114,7 @@ public class TXMansionGen extends MapGenStructure
             boolean flag = this.world.getBiomeProvider().areBiomesViable(chunkX * 16 + 8, chunkZ * 16 + 8, 32, biomeList);
             if (flag)
             {
-                System.out.println("Mansion spawned at: x:" + (chunkX * 16 + 8) + ", y: unknown , z: " + (chunkZ * 16 + 8));
+                if (TXPlugin.DEBUG_OUTPUT) System.out.println("Mansion spawned at: x:" + (chunkX * 16 + 8) + ", y: unknown , z: " + (chunkZ * 16 + 8));
                 return true;
             }
             if (chunkX != startX || chunkZ != startZ) {

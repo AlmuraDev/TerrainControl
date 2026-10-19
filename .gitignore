@@ -68,3 +68,6 @@ session.lock
 # Filesystem dust
 Thumbs.db
 .DS_Store
+# Copy of the live server configs, kept locally for reference
+/ServerConfigs/
+/notes/

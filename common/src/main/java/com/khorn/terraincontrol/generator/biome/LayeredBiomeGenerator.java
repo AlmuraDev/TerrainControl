@@ -44,14 +44,20 @@ public abstract class LayeredBiomeGenerator extends BiomeGenerator
             biomeArray = new int[x_size * z_size];
         }
         ArraysCache cache = ArraysCacheManager.GetCache();
-        if (outputType == OutputType.DEFAULT_FOR_WORLD)
-            cache.outputType = defaultOutputType;
-        else
-            cache.outputType = outputType;
-        int[] arrayOfInt = this.unZoomedLayer.getInts(cache, x, z, x_size, z_size);
-        ArraysCacheManager.ReleaseCache(cache);
+        // Always release, or an exception in a layer loses one of the shared caches for good
+        try
+        {
+            if (outputType == OutputType.DEFAULT_FOR_WORLD)
+                cache.outputType = defaultOutputType;
+            else
+                cache.outputType = outputType;
+            int[] arrayOfInt = this.unZoomedLayer.getInts(cache, x, z, x_size, z_size);
 
-        System.arraycopy(arrayOfInt, 0, biomeArray, 0, x_size * z_size);
+            System.arraycopy(arrayOfInt, 0, biomeArray, 0, x_size * z_size);
+        } finally
+        {
+            ArraysCacheManager.ReleaseCache(cache);
+        }
 
         return biomeArray;
     }
@@ -65,14 +71,20 @@ public abstract class LayeredBiomeGenerator extends BiomeGenerator
         }
 
         ArraysCache cache = ArraysCacheManager.GetCache();
-        if (outputType == OutputType.DEFAULT_FOR_WORLD)
-            cache.outputType = defaultOutputType;
-        else
-            cache.outputType = outputType;
-        int[] arrayOfInt = this.biomeLayer.getInts(cache, x, z, x_size, z_size);
-        ArraysCacheManager.ReleaseCache(cache);
+        // Always release, or an exception in a layer loses one of the shared caches for good
+        try
+        {
+            if (outputType == OutputType.DEFAULT_FOR_WORLD)
+                cache.outputType = defaultOutputType;
+            else
+                cache.outputType = outputType;
+            int[] arrayOfInt = this.biomeLayer.getInts(cache, x, z, x_size, z_size);
 
-        System.arraycopy(arrayOfInt, 0, biomeArray, 0, x_size * z_size);
+            System.arraycopy(arrayOfInt, 0, biomeArray, 0, x_size * z_size);
+        } finally
+        {
+            ArraysCacheManager.ReleaseCache(cache);
+        }
 
         return biomeArray;
     }

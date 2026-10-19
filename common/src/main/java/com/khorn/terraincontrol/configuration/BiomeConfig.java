@@ -320,7 +320,11 @@ public class BiomeConfig extends ConfigFile {
             this.spawnWaterCreatures = settings.getSetting(BiomeStandardValues.SPAWN_WATER_CREATURES, defaultSettings.defaultWaterCreatures);
             this.spawnAmbientCreatures = settings.getSetting(BiomeStandardValues.SPAWN_AMBIENT_CREATURES, defaultSettings.defaultAmbientCreatures);
         } catch (Exception e) {
-            TerrainControl.log(ERROR, "Invalid value detected in spawn list biome configuration [" + this.getName()+ ".bc]");
+            TerrainControl.log(ERROR, "Invalid value detected in spawn list biome configuration [" + settings.getName()+ ".bc]");
+        }
+
+        if (this.spawnMonsters.size() == 0 && this.spawnCreatures.size() == 0 && this.spawnWaterCreatures.size() == 0 && this.spawnAmbientCreatures.size() ==0) {
+            TerrainControl.log(WARN, "Biome: [" + settings.getName()+ ".bc] is missing entity spawns");
         }
 
         this.readCustomObjectSettings(settings);
@@ -884,7 +888,9 @@ public class BiomeConfig extends ConfigFile {
         }
 
         // BiomeRivers
-        if (!settings.getSetting(BiomeStandardValues.BIOME_RIVERS))
+        // Only when the old setting is really in the file: its default is false, so without this check
+        // every biome's RiverBiome got blanked
+        if (settings.hasSetting(BiomeStandardValues.BIOME_RIVERS) && !settings.getSetting(BiomeStandardValues.BIOME_RIVERS))
         {
             // If the rivers were disabled using the old setting, disable them
             // also using the new setting

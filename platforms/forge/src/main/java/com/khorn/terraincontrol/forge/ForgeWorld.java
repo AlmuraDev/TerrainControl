@@ -1,6 +1,7 @@
 package com.khorn.terraincontrol.forge;
 
 import com.google.common.base.Preconditions;
+import com.google.gson.JsonParseException;
 import com.khorn.terraincontrol.*;
 import com.khorn.terraincontrol.configuration.*;
 import com.khorn.terraincontrol.customobjects.CustomObjectStructureCache;
@@ -27,9 +28,13 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityList;
 import net.minecraft.entity.EntityLiving;
 import net.minecraft.entity.EnumCreatureType;
+import net.minecraft.init.Biomes;
 import net.minecraft.init.Blocks;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
+import net.minecraft.tileentity.TileEntitySign;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentString;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.datafix.FixTypes;
 import net.minecraft.util.math.BlockPos;
@@ -95,6 +100,8 @@ public class ForgeWorld implements LocalWorld
     private WorldGenTaiga2 taigaTree2;
 
     private Chunk[] chunkCache;
+    // Caches of chunks whose population was interrupted by a nested population
+    private final Deque<Chunk[]> outerChunkCaches = new ArrayDeque<Chunk[]>();
     private Random random = new Random();
 
     public int vanillaBiomesUpdated = 0;
@@ -330,19 +337,48 @@ public class ForgeWorld implements LocalWorld
 
         ExtendedBlockStorage[] sectionsArray = rawChunk.getBlockStorageArray();
 
+        // Look up each column's replace settings once, instead of once for every section of the column.
+        // Each block's replacement only depends on that block, so the order doesn't matter.
+        ReplacedBlocksMatrix[] columnReplacements = null;
+        int highestReplacedY = -1;
+
         for (ExtendedBlockStorage section : sectionsArray)
         {
             if (section == null)
                 continue;
 
+            if (columnReplacements == null)
+            {
+                columnReplacements = new ReplacedBlocksMatrix[size * size];
+                for (int sectionX = startXInChunk; sectionX < endXInChunk; sectionX++)
+                {
+                    for (int sectionZ = startZInChunk; sectionZ < endZInChunk; sectionZ++)
+                    {
+                        LocalBiome biome = this.getBiome(worldStartX + sectionX, worldStartZ + sectionZ);
+                        if (biome != null && biome.getBiomeConfig().replacedBlocks.hasReplaceSettings())
+                        {
+                            ReplacedBlocksMatrix replacements = biome.getBiomeConfig().replacedBlocks;
+                            columnReplacements[(sectionX - startXInChunk) * size + (sectionZ - startZInChunk)] = replacements;
+                            highestReplacedY = Math.max(highestReplacedY, replacements.getHighestReplacedY());
+                        }
+                    }
+                }
+            }
+
+            if (section.getYLocation() > highestReplacedY)
+            {
+                // Nothing is replaced this high up (all instructions are null here), skip the 4096 lookups
+                continue;
+            }
+
             for (int sectionX = startXInChunk; sectionX < endXInChunk; sectionX++)
             {
                 for (int sectionZ = startZInChunk; sectionZ < endZInChunk; sectionZ++)
                 {
-                    LocalBiome biome = this.getBiome(worldStartX + sectionX, worldStartZ + sectionZ);
-                    if (biome != null && biome.getBiomeConfig().replacedBlocks.hasReplaceSettings())
+                    ReplacedBlocksMatrix replacements = columnReplacements[(sectionX - startXInChunk) * size + (sectionZ - startZInChunk)];
+                    if (replacements != null && section.getYLocation() <= replacements.getHighestReplacedY())
                     {
-                        LocalMaterialData[][] replaceArray = biome.getBiomeConfig().replacedBlocks.compiledInstructions;
+                        LocalMaterialData[][] replaceArray = replacements.compiledInstructions;
                         for (int sectionY = 0; sectionY < 16; sectionY++)
                         {
                             IBlockState block = section.getData().get(sectionX, sectionY, sectionZ);
@@ -472,6 +508,18 @@ public class ForgeWorld implements LocalWorld
 
     @Override
     public void setBlock(int x, int y, int z, LocalMaterialData material) {
+        // fallInstantly is global for the whole server, so always put back what was there before
+        // (TXChunkGenerator.populate turns it on for the whole population step)
+        boolean oldFallInstantly = BlockFalling.fallInstantly;
+        BlockFalling.fallInstantly = true;
+        try {
+            setBlockInternal(x, y, z, material);
+        } finally {
+            BlockFalling.fallInstantly = oldFallInstantly;
+        }
+    }
+
+    private void setBlockInternal(int x, int y, int z, LocalMaterialData material) {
         /*
          * This method usually breaks on every Minecraft update. Always check
          * whether the names are still correct. Often, you'll also need to
@@ -481,7 +529,6 @@ public class ForgeWorld implements LocalWorld
         if (y < TerrainControl.WORLD_DEPTH || y >= TerrainControl.WORLD_HEIGHT) {
             return;
         }
-        BlockFalling.fallInstantly=true;
 
         IBlockState newState = ((ForgeMaterialData) material).internalBlock();
 
@@ -544,8 +591,8 @@ public class ForgeWorld implements LocalWorld
         } */
 
         // Notify world: (2 | 16) == update client, don't update observers
+        // (Not world.setBlockState: the chunk already holds newState, so it would see no change and do nothing)
         this.world.markAndNotifyBlock(pos, chunk, oldState, newState, 2 | 16);
-        BlockFalling.fallInstantly=false;
     }
 
 
@@ -592,13 +639,13 @@ public class ForgeWorld implements LocalWorld
     @Override
     public void startPopulation(ChunkCoordinate chunkCoord)
     {
-        if (this.chunkCache != null && this.settings.getWorldConfig().populationBoundsCheck)
+        if (this.chunkCache != null)
         {
-            throw new IllegalStateException("Chunk is already being populated."
-                    + " This may be a bug in Terrain Control, but it may also be"
-                    + " another mod that is poking in unloaded chunks. Set"
-                    + " PopulationBoundsCheck to false in the WorldConfig to"
-                    + " disable this error.");
+            // Something touched an ungenerated chunk while we were populating (another mod, or a vanilla
+            // feature), so Minecraft is populating a neighbour inside our population. Vanilla allows this,
+            // so remember the outer chunk's cache and restore it in endPopulation() instead of crashing.
+            TerrainControl.log(LogMarker.DEBUG, "Nested population of chunk {} in world {}", chunkCoord, this.name);
+            this.outerChunkCaches.push(this.chunkCache);
         }
 
         // Initialize cache
@@ -643,22 +690,28 @@ public class ForgeWorld implements LocalWorld
     @Override
     public void endPopulation()
     {
-        if (this.chunkCache == null && this.settings.getWorldConfig().populationBoundsCheck)
+        if (this.chunkCache == null)
         {
-            throw new IllegalStateException("Chunk is not being populated."
-                    + " This may be a bug in Terrain Control, but it may also be"
-                    + " another mod that is poking in unloaded chunks. Set"
-                    + " PopulationBoundsCheck to false in the WorldConfig to"
-                    + " disable this error.");
+            // Don't throw: this runs from a finally block, and throwing would hide the real exception
+            TerrainControl.log(LogMarker.WARN, "endPopulation() called in world {} while no chunk is being populated", this.name);
+            return;
         }
-        this.chunkCache = null;
+        this.chunkCache = this.outerChunkCaches.poll();
     }
 
     @Override
     public int getLightLevel(int x, int y, int z)
     {
         // Actually, this calculates the block and skylight as it were day.
-        return this.world.getLight(new BlockPos(x, y, z));
+        // Same as World.getLight, but through our chunk lookup so it can't load or generate chunks
+        if (y < TerrainControl.WORLD_DEPTH)
+            return 0;
+        if (y >= TerrainControl.WORLD_HEIGHT)
+            return 15;
+        Chunk chunk = this.getChunk(x, y, z);
+        if (chunk == null)
+            return -1; // Unknown: fails every LightCheck, so the object isn't spawned here
+        return chunk.getLightSubtracted(new BlockPos(x, y, z), 0);
     }
 
     @Override
@@ -813,7 +866,25 @@ public class ForgeWorld implements LocalWorld
     @Override
     public LocalBiome getSavedBiome(int x, int z) throws BiomeNotFoundException
     {
-        return getBiomeById(Biome.getIdForBiome(this.world.getBiome(new BlockPos(x, 0, z))));
+        // Does what World.getBiome does, but reads the chunk's biome array directly. World.getBiome goes
+        // through Chunk.getBiome, which MixinChunk sends back to getBiome() here: endless recursion with
+        // PopulateUsingSavedBiomes on.
+        BlockPos pos = new BlockPos(x, 0, z);
+        Biome biome = null;
+        if (this.world.isBlockLoaded(pos))
+        {
+            int savedId = this.world.getChunk(pos).getBiomeArray()[(z & 15) << 4 | (x & 15)] & 255;
+            if (savedId != 255)
+            {
+                biome = Biome.getBiome(savedId, Biomes.PLAINS);
+            }
+        }
+        if (biome == null)
+        {
+            // Not loaded or not saved yet
+            biome = this.world.getBiomeProvider().getBiome(pos, Biomes.PLAINS);
+        }
+        return getBiomeById(Biome.getIdForBiome(biome));
     }
 
     @Override
@@ -823,10 +894,22 @@ public class ForgeWorld implements LocalWorld
         if (tag == null)
             return;
 
+        // Same chunk lookup as setBlock, so we skip the tag whenever the block itself was skipped.
+        // (world.getTileEntity would load or generate the chunk, even in the middle of population.)
+        Chunk chunk = this.getChunk(x, y, z);
+        if (chunk == null)
+            return;
+
         // Convert Tag to a native nms tag
         NBTTagCompound nmsTag = NBTHelper.getNMSFromNBTTagCompound(tag);
         // Add the id and position to it
-        nmsTag.setString("id", material.withDefaultBlockData().getName());
+        // Keep the file's own id when it has one: the data fixer only converts old tile entities when it sees
+        // their old id ("MobSpawner", "Sign", ...). With the block name instead, old spawners came out without
+        // a mob and old signs crashed.
+        if (!nmsTag.hasKey("id", 8))
+        {
+            nmsTag.setString("id", material.withDefaultBlockData().getName());
+        }
         nmsTag.setInteger("x", x);
         nmsTag.setInteger("y", y);
         nmsTag.setInteger("z", z);
@@ -834,15 +917,57 @@ public class ForgeWorld implements LocalWorld
         // server startup instead, and then save the result?)
         nmsTag = FMLCommonHandler.instance().getDataFixer().process(FixTypes.BLOCK_ENTITY, nmsTag);
         // Add that data to the current tile entity in the world
-        TileEntity tileEntity = this.world.getTileEntity(new BlockPos(x, y, z));
+        TileEntity tileEntity = chunk.getTileEntity(new BlockPos(x, y, z), Chunk.EnumCreateEntityType.IMMEDIATE);
         if (tileEntity != null)
         {
-            tileEntity.readFromNBT(nmsTag);
+            if (tileEntity instanceof TileEntitySign)
+            {
+                fixOldSignText(nmsTag);
+            }
+            try
+            {
+                tileEntity.readFromNBT(nmsTag);
+            } catch (RuntimeException e)
+            {
+                // Bad data in a BO3's NBT file must not crash the server in the middle of world generation
+                TerrainControl.log(LogMarker.WARN, "Skipping bad tile entity data for {} at {},{},{} in world {}: {}",
+                        nmsTag.getString("id"), x, y, z, this.name, e.toString());
+            }
         } else
         {
             TerrainControl.log(LogMarker.DEBUG,
                     "Skipping tile entity with id {}, cannot be placed at {},{},{} on id {}", nmsTag.getString("id"), x,
                     y, z, getMaterial(x, y, z));
+        }
+    }
+
+    /**
+     * Signs from before Minecraft 1.9 store their lines as plain text, 1.12 wants JSON text. Minecraft's data
+     * fixer only converts them when the tag's id is the old "Sign", but the id above is the block name
+     * (standing_sign/wall_sign), so convert them here, the same way the data fixer would.
+     */
+    private static void fixOldSignText(NBTTagCompound signTag)
+    {
+        for (int line = 1; line <= 4; line++)
+        {
+            String key = "Text" + line;
+            if (!signTag.hasKey(key, 8))
+            {
+                continue;
+            }
+            String text = signTag.getString(key);
+            boolean isJson;
+            try
+            {
+                isJson = ITextComponent.Serializer.jsonToComponent(text) != null;
+            } catch (JsonParseException e)
+            {
+                isJson = false;
+            }
+            if (!isJson)
+            {
+                signTag.setString(key, ITextComponent.Serializer.componentToJson(new TextComponentString(text)));
+            }
         }
     }
 
@@ -918,7 +1043,7 @@ public class ForgeWorld implements LocalWorld
     public void spawnEntity(String id, float x, float y, float z, int amount, NamedBinaryTag metaOrNull)
     {
         String mobTypeName = MobNames.toInternalName(id);
-        System.out.println("Spawn Mob: " + id + " - Mob Name: " + mobTypeName);
+        if (TXPlugin.DEBUG_OUTPUT) System.out.println("Spawn Mob: " + id + " - Mob Name: " + mobTypeName);
         ResourceLocation entityResourceLocation = new ResourceLocation(mobTypeName);
         NBTTagCompound nbttagcompound = null;
         if (metaOrNull != null)

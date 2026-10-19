@@ -136,6 +136,9 @@ public class BO3 implements CustomObject
         }
 
         // Check for source blocks
+        // With MaxPercentageOutsideSourceBlock at 100 (the default) the percentage can never be too high,
+        // so only check that everything is loaded and skip reading every block
+        boolean countOutsideSourceBlocks = settings.maxPercentageOutsideSourceBlock < 100;
         int blocksOutsideSourceBlock = 0;
         for (BO3PlaceableFunction block : blocks)
         {
@@ -144,7 +147,7 @@ public class BO3 implements CustomObject
                 // Cannot spawn BO3, part of world is not loaded
                 return false;
             }
-            if (!settings.sourceBlocks.contains(world.getMaterial(x + block.x, y + block.y, z + block.z)))
+            if (countOutsideSourceBlocks && !settings.sourceBlocks.contains(world.getMaterial(x + block.x, y + block.y, z + block.z)))
             {
                 blocksOutsideSourceBlock++;
             }

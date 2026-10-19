@@ -165,7 +165,7 @@ public class CavesGen extends TerrainGenBase
                 double d9 = (local_x + generatingChunk.getBlockX() + 0.5D - x) / d3;
                 for (int local_z = i3; local_z < i4; local_z++)
                 {
-                    LocalBiome biome = this.world.getBiome(local_x + generatingChunk.getBlockX(), local_z + generatingChunk.getBlockZ());
+                    LocalBiome biome = getGeneratingChunkBiome(generatingChunkBuffer, local_x, local_z);
                     double d10 = (local_z + generatingChunk.getBlockZ() + 0.5D - z) / d3;
 
                     boolean grassFound = false;

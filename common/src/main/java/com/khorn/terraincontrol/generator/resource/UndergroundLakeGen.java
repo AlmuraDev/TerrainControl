@@ -90,10 +90,10 @@ public class UndergroundLakeGen extends Resource
 
         float mPi = rand.nextFloat() * 3.141593F;
 
-        double x1 = x + 8 + MathHelper.sin(mPi) * size / 8.0F;
-        double x2 = x + 8 - MathHelper.sin(mPi) * size / 8.0F;
-        double z1 = z + 8 + MathHelper.cos(mPi) * size / 8.0F;
-        double z2 = z + 8 - MathHelper.cos(mPi) * size / 8.0F;
+        double x1 = x + MathHelper.sin(mPi) * size / 8.0F;
+        double x2 = x - MathHelper.sin(mPi) * size / 8.0F;
+        double z1 = z + MathHelper.cos(mPi) * size / 8.0F;
+        double z2 = z - MathHelper.cos(mPi) * size / 8.0F;
 
         double y1 = y + rand.nextInt(3) + 2;
         double y2 = y + rand.nextInt(3) + 2;
@@ -113,8 +113,9 @@ public class UndergroundLakeGen extends Resource
                 for (int yLake = (int) (yAdjusted - verticalSize / 2.0D); yLake <= (int) (yAdjusted + verticalSize / 2.0D); yLake++)
                     for (int zLake = (int) (zAdjusted - horizontalSize / 2.0D); zLake <= (int) (zAdjusted + horizontalSize / 2.0D); zLake++)
                     {
-                        LocalMaterialData material = world.getMaterial(xLake, yLake, zLake);
-                        if (material.isAir() || material.isMaterial(DefaultMaterial.BEDROCK))
+                        // (Not called "material": that hid the resource's water, so the old block was written back)
+                        LocalMaterialData existingMaterial = world.getMaterial(xLake, yLake, zLake);
+                        if (existingMaterial.isAir() || existingMaterial.isMaterial(DefaultMaterial.BEDROCK))
                         {
                             // Don't replace air or bedrock
                             continue;

@@ -1,5 +1,6 @@
 package com.khorn.terraincontrol.forge.generator;
 
+import com.khorn.terraincontrol.forge.TXPlugin;
 import static com.khorn.terraincontrol.util.ChunkCoordinate.CHUNK_X_SIZE;
 import static com.khorn.terraincontrol.util.ChunkCoordinate.CHUNK_Z_SIZE;
 
@@ -91,9 +92,16 @@ public class TXChunkGenerator implements IChunkGenerator
     {
         if (this.TestMode)
             return;
+        // Restore the old value rather than false: this can run nested inside another chunk's population
+        boolean oldFallInstantly = BlockFalling.fallInstantly;
         BlockFalling.fallInstantly = true;
-        this.spawner.populate(ChunkCoordinate.fromChunkCoords(chunkX, chunkZ));
-        BlockFalling.fallInstantly = false;
+        try
+        {
+            this.spawner.populate(ChunkCoordinate.fromChunkCoords(chunkX, chunkZ));
+        } finally
+        {
+            BlockFalling.fallInstantly = oldFallInstantly;
+        }
     }
 
     @Override
@@ -123,7 +131,7 @@ public class TXChunkGenerator implements IChunkGenerator
     public BlockPos getNearestStructurePos(World worldIn, String structureName, BlockPos position, boolean flag)
     {
         // Gets the nearest stronghold
-        System.out.println("Structure Name: " + worldIn + " / " + structureName + " / " + flag);
+        if (TXPlugin.DEBUG_OUTPUT) System.out.println("Structure Name: " + worldIn + " / " + structureName + " / " + flag);
 
         if (("Stronghold".equals(structureName)) && (this.world.strongholdGen != null))
         {

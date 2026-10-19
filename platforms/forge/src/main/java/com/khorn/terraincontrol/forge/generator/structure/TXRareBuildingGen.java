@@ -1,5 +1,6 @@
 package com.khorn.terraincontrol.forge.generator.structure;
 
+import com.khorn.terraincontrol.forge.TXPlugin;
 import com.khorn.terraincontrol.LocalBiome;
 import com.khorn.terraincontrol.configuration.BiomeConfig.RareBuildingType;
 import com.khorn.terraincontrol.configuration.ServerConfigProvider;
@@ -65,7 +66,7 @@ public class TXRareBuildingGen extends MapGenScatteredFeature
             Biome biomeAtPosition = this.world.getBiomeProvider().getBiome(new BlockPos(var3 * 16 + 8, 0, var4 * 16 + 8));
 
             if (this.biomeList.contains(biomeAtPosition)) {
-                System.out.println("RareBuildingGen Building:" + biomeAtPosition.biomeName + this.getStructureName() + " at: " + (var3 * 16 + 8) + "/" + (var4 * 16 + 8));
+                if (TXPlugin.DEBUG_OUTPUT) System.out.println("RareBuildingGen Building:" + biomeAtPosition.biomeName + this.getStructureName() + " at: " + (var3 * 16 + 8) + "/" + (var4 * 16 + 8));
                 return true;
             }
         }

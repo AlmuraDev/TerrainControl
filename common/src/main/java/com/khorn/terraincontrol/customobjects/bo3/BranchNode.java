@@ -4,6 +4,7 @@ package com.khorn.terraincontrol.customobjects.bo3;
 import com.khorn.terraincontrol.customobjects.CustomObject;
 import com.khorn.terraincontrol.util.Rotation;
 
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Simple class to hold the spawn chance and rotation of a BO3 in the Branch or
@@ -24,6 +25,11 @@ public class BranchNode implements Comparable<BranchNode>
      * The branch with associated rotation and chance values
      */
     private CustomObject customObject;
+    /**
+     * Tie-breaker for nodes with equal chances, see {@link #compareTo(BranchNode)}
+     */
+    private final long creationOrder = NEXT_CREATION_ORDER.getAndIncrement();
+    private static final AtomicLong NEXT_CREATION_ORDER = new AtomicLong();
 
     /**
      * Creates an instance of BranchNode with given rotation, chance, and branch
@@ -76,7 +82,15 @@ public class BranchNode implements Comparable<BranchNode>
     @Override
     public int compareTo(BranchNode that)
     {
-        return (int) (this.chance - that.chance);
+        // Branches live in a TreeSet, which drops anything that compares as equal. Equal chances (or
+        // ones less than 1 apart, with the old int cast) must not count as duplicates, so fall back to
+        // the order they were created in, which is the order in the BO3 file.
+        int byChance = Double.compare(this.chance, that.chance);
+        if (byChance != 0)
+        {
+            return byChance;
+        }
+        return Long.compare(this.creationOrder, that.creationOrder);
     }
 
 }

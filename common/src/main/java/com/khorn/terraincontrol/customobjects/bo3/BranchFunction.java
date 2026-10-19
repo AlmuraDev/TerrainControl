@@ -55,13 +55,22 @@ public class BranchFunction extends BO3Function implements Branch
         super(config);
     }
 
+    /**
+     * @return An empty branch function of the same type as this one, for {@link #rotate()}
+     */
+    protected BranchFunction createEmptyCopy()
+    {
+        return new BranchFunction(getHolder());
+    }
+
     @Override
     public BranchFunction rotate()
     {
-        BranchFunction rotatedBranch = new BranchFunction(getHolder());
+        BranchFunction rotatedBranch = createEmptyCopy();
         rotatedBranch.x = z;
         rotatedBranch.y = y;
         rotatedBranch.z = -x;
+        rotatedBranch.totalChance = totalChance;
         rotatedBranch.branches = new TreeSet<BranchNode>();
         for (BranchNode holder : this.branches)
         {

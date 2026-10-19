@@ -114,6 +114,12 @@ public class ReplacedBlocksMatrix
      */
     public LocalMaterialData[][] compiledInstructions;
 
+    /**
+     * Highest y that any instruction replaces at, -1 when nothing is replaced. Above this, every entry of
+     * {@link #compiledInstructions} is null.
+     */
+    private int highestReplacedY = -1;
+
     public ReplacedBlocksMatrix(String setting, int maxHeight) throws InvalidConfigException
     {
         this.maxHeight = maxHeight;
@@ -178,6 +184,7 @@ public class ReplacedBlocksMatrix
     public void setInstructions(Collection<ReplacedBlocksInstruction> instructions)
     {
         this.instructions = Collections.unmodifiableList(new ArrayList<ReplacedBlocksInstruction>(instructions));
+        this.highestReplacedY = -1;
 
         if (this.instructions.size() == 0)
         {
@@ -200,8 +207,19 @@ public class ReplacedBlocksMatrix
             for (int y = minHeight; y <= maxHeight; y++)
             {
                 compiledInstructions[fromBlockId][y] = toBlock;
+                this.highestReplacedY = Math.max(this.highestReplacedY, y);
             }
         }
+    }
+
+    /**
+     * Gets the highest y at which this matrix replaces anything. Blocks above it are never replaced.
+     *
+     * @return The highest y, or -1 when nothing is replaced.
+     */
+    public int getHighestReplacedY()
+    {
+        return this.highestReplacedY;
     }
 
     public String toString()

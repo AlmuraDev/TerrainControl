@@ -51,7 +51,9 @@ public class ChunkCoordinate
     @Override
     public int hashCode()
     {
-        return (chunkX >> 13) ^ chunkZ;
+        // (Was (chunkX >> 13) ^ chunkZ, which ignores x for anything closer than 8192 chunks, so every
+        // chunk in a row landed in the same hash bucket of the biome and structure caches)
+        return 31 * chunkX + chunkZ;
     }
 
     @Override
@@ -128,9 +130,8 @@ public class ChunkCoordinate
      */
     public static ChunkCoordinate fromBlockCoords(int blockX, int blockZ)
     {
-        return new ChunkCoordinate(
-                MathHelper.floor(blockX / (double) CHUNK_X_SIZE), 
-                MathHelper.floor(blockZ / (double) CHUNK_Z_SIZE));
+        // >> 4 is floor(block / 16) for every int, without the doubles
+        return new ChunkCoordinate(blockX >> 4, blockZ >> 4);
     }
 
     public static ChunkCoordinate fromChunkCoords(int chunkX, int chunkZ)

@@ -1,5 +1,6 @@
 package com.khorn.terraincontrol.forge.generator.structure;
 
+import com.khorn.terraincontrol.forge.TXPlugin;
 import com.khorn.terraincontrol.LocalBiome;
 import com.khorn.terraincontrol.configuration.BiomeConfig.VillageType;
 import com.khorn.terraincontrol.configuration.ServerConfigProvider;
@@ -97,7 +98,7 @@ public class TXVillageGen extends MapGenStructure
             }
 
             if (canSpawn) {
-                System.out.println("Biome List Size: " + this.villageSpawnBiomes.size() + " Village spawned at: x:" + (var3 * 16 + 8) + ", y: unknown , z: " + (var4 * 16 + 8) + "- " + var7);
+                if (TXPlugin.DEBUG_OUTPUT) System.out.println("Biome List Size: " + this.villageSpawnBiomes.size() + " Village spawned at: x:" + (var3 * 16 + 8) + ", y: unknown , z: " + (var4 * 16 + 8) + "- " + var7);
                 return true;
             }
         }

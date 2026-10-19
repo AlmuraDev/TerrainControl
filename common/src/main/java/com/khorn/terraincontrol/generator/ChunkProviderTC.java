@@ -3,6 +3,7 @@ package com.khorn.terraincontrol.generator;
 import static com.khorn.terraincontrol.util.ChunkCoordinate.CHUNK_X_SIZE;
 import static com.khorn.terraincontrol.util.ChunkCoordinate.CHUNK_Z_SIZE;
 
+import com.khorn.terraincontrol.LocalBiome;
 import com.khorn.terraincontrol.LocalMaterialData;
 import com.khorn.terraincontrol.LocalWorld;
 import com.khorn.terraincontrol.TerrainControl;
@@ -67,6 +68,7 @@ public class ChunkProviderTC
 
     private final TerrainGenBase caveGen;
     private final TerrainGenBase canyonGen;
+    private final LocalBiome[] generatingChunkBiomes = new LocalBiome[CHUNK_X_SIZE * CHUNK_Z_SIZE];
 
     private int[] biomeArray;
     private int[] riverArray;
@@ -132,10 +134,32 @@ public class ChunkProviderTC
 
         boolean dry = addBiomeBlocksAndCheckWater(chunkBuffer);
 
-        this.caveGen.generate(chunkBuffer);
-        this.canyonGen.generate(chunkBuffer);
-
         WorldConfig worldConfig = configProvider.getWorldConfig();
+
+        // Caves and ravines need the biome of every column they carve, many times over. biomeArray now
+        // holds this chunk's biomes, exactly what LocalWorld.getBiome returns (when it isn't reading saved
+        // biomes), so hand them over instead of going through the world's biome cache every time.
+        LocalBiome[] chunkBiomes = null;
+        if (!worldConfig.populateUsingSavedBiomes)
+        {
+            chunkBiomes = this.generatingChunkBiomes;
+            for (int i = 0; i < CHUNK_X_SIZE * CHUNK_Z_SIZE; i++)
+            {
+                chunkBiomes[i] = this.localWorld.getBiomeByIdOrNull(this.biomeArray[i]);
+            }
+        }
+        this.caveGen.setGeneratingChunkBiomes(chunkBiomes);
+        this.canyonGen.setGeneratingChunkBiomes(chunkBiomes);
+        try
+        {
+            this.caveGen.generate(chunkBuffer);
+            this.canyonGen.generate(chunkBuffer);
+        } finally
+        {
+            this.caveGen.setGeneratingChunkBiomes(null);
+            this.canyonGen.setGeneratingChunkBiomes(null);
+        }
+
         if (worldConfig.ModeTerrain == WorldConfig.TerrainMode.Normal || worldConfig.ModeTerrain == WorldConfig.TerrainMode.OldGenerator)
         {
             this.localWorld.prepareDefaultStructures(x, z, dry);
@@ -258,7 +282,11 @@ public class ChunkProviderTC
                                     block = biomeConfig.stoneBlock;
                                 }
 
-                                chunkBuffer.setBlock(piece_x + x * 4, y * 8 + piece_y, z * 4 + piece_z, block);
+                                // The chunk buffer starts out as all air, so writing air would change nothing
+                                if (block != air)
+                                {
+                                    chunkBuffer.setBlock(piece_x + x * 4, y * 8 + piece_y, z * 4 + piece_z, block);
+                                }
                                 d16 += d17;
                             }
                             d11 += d13;

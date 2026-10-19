@@ -1,5 +1,6 @@
 package com.khorn.terraincontrol.generator.terrain;
 
+import com.khorn.terraincontrol.LocalBiome;
 import com.khorn.terraincontrol.LocalMaterialData;
 import com.khorn.terraincontrol.LocalWorld;
 import com.khorn.terraincontrol.TerrainControl;
@@ -18,6 +19,11 @@ public abstract class TerrainGenBase
     protected int checkAreaSize = 8;
     protected Random random = new Random();
     protected LocalWorld world;
+    /**
+     * Biomes of the chunk being generated, indexed x + z * 16, or null to look them up through the world.
+     * @see #setGeneratingChunkBiomes(LocalBiome[])
+     */
+    private LocalBiome[] generatingChunkBiomes;
     private final long worldLong1;
     private final long worldLong2;
 
@@ -44,6 +50,38 @@ public abstract class TerrainGenBase
                 this.random.setSeed(l3 ^ l4 ^ this.world.getSeed());
                 generateChunk(ChunkCoordinate.fromChunkCoords(x, z), chunkBuffer);
             }
+    }
+
+    /**
+     * Gives the biomes of the chunk that is about to be generated, so that {@link #getGeneratingChunkBiome(ChunkBuffer, int, int)}
+     * doesn't have to go through the world's biome cache for every column of every cave step.
+     * @param biomes The biomes, indexed x + z * 16, exactly as {@link LocalWorld#getBiome(int, int)} would return them.
+     *               Null to always use the world.
+     */
+    public void setGeneratingChunkBiomes(LocalBiome[] biomes)
+    {
+        this.generatingChunkBiomes = biomes;
+    }
+
+    /**
+     * Gets the biome of a column in the chunk being generated.
+     * @param generatingChunkBuffer The chunk being generated.
+     * @param localX X in the chunk, 0 to 15.
+     * @param localZ Z in the chunk, 0 to 15.
+     * @return The biome, the same as {@link LocalWorld#getBiome(int, int)} returns.
+     */
+    protected LocalBiome getGeneratingChunkBiome(ChunkBuffer generatingChunkBuffer, int localX, int localZ)
+    {
+        if (this.generatingChunkBiomes != null)
+        {
+            LocalBiome biome = this.generatingChunkBiomes[localX + localZ * 16];
+            if (biome != null)
+            {
+                return biome;
+            }
+        }
+        ChunkCoordinate generatingChunk = generatingChunkBuffer.getChunkCoordinate();
+        return this.world.getBiome(generatingChunk.getBlockX() + localX, generatingChunk.getBlockZ() + localZ);
     }
 
     /**

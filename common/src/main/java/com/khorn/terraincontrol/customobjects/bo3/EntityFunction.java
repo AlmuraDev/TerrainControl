@@ -80,6 +80,7 @@ public class EntityFunction extends BO3PlaceableFunction
     @Override
     public void spawn(LocalWorld world, Random random, int x, int y, int z)
     {
-        world.spawnEntity(mobName, this.x + x, this.y + y, this.z + z, groupSize, metaDataTag);
+        // x, y and z already include this entity's offset (see BO3.spawnForced), like for BlockFunction
+        world.spawnEntity(mobName, x, y, z, groupSize, metaDataTag);
     }
 }

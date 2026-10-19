@@ -335,12 +335,16 @@ public final class ServerConfigProvider implements ConfigProvider
         return loadedBiomeNames.toString();
     }
 
-    private void processInheritance(Map<String, BiomeConfigStub> biomeConfigStubs, BiomeConfigStub biomeConfigStub, int currentDepth)
+    /**
+     * @return False if the inheritance chain is cyclical or too deep. Nothing in the chain is merged then,
+     * as merging a cycle would make settings lookups loop forever.
+     */
+    private boolean processInheritance(Map<String, BiomeConfigStub> biomeConfigStubs, BiomeConfigStub biomeConfigStub, int currentDepth)
     {
         if (biomeConfigStub.biomeExtendsProcessed)
         {
             // Already processed earlier
-            return;
+            return true;
         }
 
         String extendedBiomeName = biomeConfigStub.getSettings().getSetting(BiomeStandardValues.BIOME_EXTENDS);
@@ -348,7 +352,7 @@ public final class ServerConfigProvider implements ConfigProvider
         {
             // Not extending anything
             biomeConfigStub.biomeExtendsProcessed = true;
-            return;
+            return true;
         }
 
         // This biome extends another biome
@@ -357,21 +361,28 @@ public final class ServerConfigProvider implements ConfigProvider
         {
             TerrainControl.log(LogMarker.WARN, "The biome {} tried to extend the biome {}, but that biome doesn't exist.",
                     biomeConfigStub.getBiomeName(), extendedBiomeName);
-            return;
+            return true;
         }
 
         // Check for too much recursion
         if (currentDepth > MAX_INHERITANCE_DEPTH)
         {
             TerrainControl.log(LogMarker.FATAL,
-                    "The biome {} cannot extend the biome {} - too much configs processed already! Cyclical inheritance?",
+                    "The biome {} cannot extend the biome {} - too much configs processed already! Cyclical inheritance?"
+                            + " BiomeExtends is ignored for every biome in this chain.",
                     biomeConfigStub.getBiomeName(), extendedBiomeConfig.getBiomeName());
+            biomeConfigStub.biomeExtendsProcessed = true;
+            return false;
         }
 
         if (!extendedBiomeConfig.biomeExtendsProcessed)
         {
             // This biome has not been processed yet, do that first
-            processInheritance(biomeConfigStubs, extendedBiomeConfig, currentDepth + 1);
+            if (!processInheritance(biomeConfigStubs, extendedBiomeConfig, currentDepth + 1))
+            {
+                biomeConfigStub.biomeExtendsProcessed = true;
+                return false;
+            }
         }
 
         // Merge the two
@@ -379,6 +390,7 @@ public final class ServerConfigProvider implements ConfigProvider
 
         // Done
         biomeConfigStub.biomeExtendsProcessed = true;
+        return true;
     }
 
     private String correctOldBiomeConfigFolder(File settingsDir)

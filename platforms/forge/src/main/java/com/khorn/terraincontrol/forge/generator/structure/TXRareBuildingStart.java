@@ -1,5 +1,6 @@
 package com.khorn.terraincontrol.forge.generator.structure;
 
+import com.khorn.terraincontrol.forge.TXPlugin;
 import com.khorn.terraincontrol.LocalWorld;
 import com.khorn.terraincontrol.configuration.BiomeConfig;
 import com.khorn.terraincontrol.forge.util.WorldHelper;
@@ -17,7 +18,7 @@ public class TXRareBuildingStart extends StructureStart
         LocalWorld localWorld = WorldHelper.toLocalWorld(world);
         BiomeConfig biomeConfig = localWorld.getBiome(chunkX * 16 + 8, chunkZ * 16 + 8).getBiomeConfig();
         StructureComponent building;
-        System.out.println("Spawning Rare Building: " + biomeConfig.rareBuildingType + " at: " + (chunkX * 16 + 8) + "/" + (chunkZ * 16 + 8));
+        if (TXPlugin.DEBUG_OUTPUT) System.out.println("Spawning Rare Building: " + biomeConfig.rareBuildingType + " at: " + (chunkX * 16 + 8) + "/" + (chunkZ * 16 + 8));
         switch (biomeConfig.rareBuildingType)
         {
             case desertPyramid:

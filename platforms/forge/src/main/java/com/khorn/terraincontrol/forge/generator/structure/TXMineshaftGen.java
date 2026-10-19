@@ -4,6 +4,7 @@ import com.khorn.terraincontrol.LocalBiome;
 import com.khorn.terraincontrol.LocalWorld;
 import com.khorn.terraincontrol.configuration.BiomeConfig;
 import com.khorn.terraincontrol.configuration.BiomeConfig.MineshaftType;
+import com.khorn.terraincontrol.configuration.ConfigProvider;
 import com.khorn.terraincontrol.forge.util.WorldHelper;
 import com.khorn.terraincontrol.util.ChunkCoordinate;
 import com.khorn.terraincontrol.util.minecraftTypes.StructureNames;
@@ -17,25 +18,65 @@ import net.minecraft.world.gen.structure.StructureStart;
 
 public class TXMineshaftGen extends MapGenStructure
 {
+    /** Configs {@link #maxMineshaftRarity} was worked out for */
+    private ConfigProvider maxRarityConfigs;
+    /** Highest MineshaftRarity of all biomes in the world that can have mineshafts */
+    private double maxMineshaftRarity;
+
     @Override
     protected boolean canSpawnStructureAtCoords(int chunkX, int chunkZ)
     {
         if (this.rand.nextInt(80) < Math.max(Math.abs(chunkX), Math.abs(chunkZ)))
         {
             LocalWorld world = WorldHelper.toLocalWorld(this.world);
+
+            // Roll the chance before looking up the biome. Same random numbers in the same order as
+            // looking up the biome first: a disabled biome returns false without the roll, but after a
+            // false nothing reads this.rand before Minecraft reseeds it. When the roll fails for every
+            // biome, skip the biome lookup (about 289 of them for every chunk generated or loaded).
+            double roll = this.rand.nextDouble() * 100.0;
+            if (roll >= getMaxMineshaftRarity(world.getConfigs()))
+            {
+                return false;
+            }
+
             LocalBiome biome = world.getBiome(chunkX * 16 + 8, chunkZ * 16 + 8);
             BiomeConfig biomeConfig = biome.getBiomeConfig();
             if (biomeConfig.mineshaftType == MineshaftType.disabled)
             {
                 return false;
             }
-            if (this.rand.nextDouble() * 100.0 < biomeConfig.mineshaftsRarity)
+            if (roll < biomeConfig.mineshaftsRarity)
             {
                 return true;
             }
         }
 
         return false;
+    }
+
+    private double getMaxMineshaftRarity(ConfigProvider configs)
+    {
+        if (configs != this.maxRarityConfigs)
+        {
+            // First call, or the configs were reloaded
+            double maxRarity = 0;
+            for (LocalBiome biome : configs.getBiomeArray())
+            {
+                if (biome == null)
+                {
+                    continue;
+                }
+                BiomeConfig biomeConfig = biome.getBiomeConfig();
+                if (biomeConfig.mineshaftType != MineshaftType.disabled)
+                {
+                    maxRarity = Math.max(maxRarity, biomeConfig.mineshaftsRarity);
+                }
+            }
+            this.maxMineshaftRarity = maxRarity;
+            this.maxRarityConfigs = configs;
+        }
+        return this.maxMineshaftRarity;
     }
 
     @Override

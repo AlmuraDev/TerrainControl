@@ -26,7 +26,11 @@ public class ArraysCacheManager
             }
 
         }
-        return null; // Exception ??
+        // All busy (more callers at once than caches, e.g. a nested biome lookup):
+        // hand out a throwaway cache instead of null
+        ArraysCache extraCache = new ArraysCache();
+        extraCache.isFree = false;
+        return extraCache;
     }
 
     public static void ReleaseCache(ArraysCache cache)

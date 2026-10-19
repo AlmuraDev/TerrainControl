@@ -84,10 +84,10 @@ public class OreGen extends Resource
 
         float f = rand.nextFloat() * (float) Math.PI;
 
-        double d1 = x + 8 + MathHelper.sin(f) * maxSize / 8.0F;
-        double d2 = x + 8 - MathHelper.sin(f) * maxSize / 8.0F;
-        double d3 = z + 8 + MathHelper.cos(f) * maxSize / 8.0F;
-        double d4 = z + 8 - MathHelper.cos(f) * maxSize / 8.0F;
+        double d1 = x + MathHelper.sin(f) * maxSize / 8.0F;
+        double d2 = x - MathHelper.sin(f) * maxSize / 8.0F;
+        double d3 = z + MathHelper.cos(f) * maxSize / 8.0F;
+        double d4 = z - MathHelper.cos(f) * maxSize / 8.0F;
 
         double d5 = y + rand.nextInt(3) - 2;
         double d6 = y + rand.nextInt(3) - 2;

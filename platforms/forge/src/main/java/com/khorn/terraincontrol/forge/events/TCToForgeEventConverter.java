@@ -61,9 +61,10 @@ public class TCToForgeEventConverter extends EventHandler
                 resource instanceof LiquidGen ||
                 resource instanceof CustomObjectGen)
         {
-            // Fire population event
+            // Fire population event (takes chunk coords, like PopulateChunkEvent.Pre/Post below; listeners
+            // that got block coords here placed their features 16x too far away, generating distant chunks)
             Populate.EventType forgeEvent = getPopulateEventType(resource.getMaterial());
-            return TerrainGen.populate(world.getChunkGenerator(), world.getWorld(), random, blockX, blockZ,
+            return TerrainGen.populate(world.getChunkGenerator(), world.getWorld(), random, chunkX, chunkZ,
                     villageInChunk, forgeEvent);
         } else if (resource instanceof OreGen || resource instanceof VeinGen)
         {

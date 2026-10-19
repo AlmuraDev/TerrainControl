@@ -146,7 +146,8 @@ public class RavinesGen extends TerrainGenBase
                 double d9 = (localX + generatingChunk.getBlockX() + 0.5D - paramDouble1) / d3;
                 for (int localZ = i2; localZ < i3; localZ++)
                 {
-                    LocalBiome biome = world.getBiome(localZ + generatingChunk.getBlockX(), localX + generatingChunk.getBlockZ());
+                    // (x and z swapped on purpose: upstream bug, but fixing it would change ravines)
+                    LocalBiome biome = getGeneratingChunkBiome(generatingChunkBuffer, localZ, localX);
                     BiomeConfig biomeConfig = biome.getBiomeConfig();
                     double d10 = (localZ + generatingChunk.getBlockZ() + 0.5D - paramDouble3) / d3;
                     boolean grassFound = false;

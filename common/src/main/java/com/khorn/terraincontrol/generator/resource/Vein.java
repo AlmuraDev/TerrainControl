@@ -33,8 +33,9 @@ class Vein
     public boolean reachesChunk(int otherChunkX, int otherChunkZ)
     {
         // Calculate the nearest chunk x and z
-        int chunkX = (x + 8) / 16;
-        int chunkZ = (z + 8) / 16;
+        // (>> 4 rounds down for negative coordinates too, / 16 rounds towards zero)
+        int chunkX = (x + 8) >> 4;
+        int chunkZ = (z + 8) >> 4;
         // Calculate the ceiled chunk size
         int chunkSize = getChunkSize();
 
@@ -74,10 +75,10 @@ class Vein
 
         float f = rand.nextFloat() * 3.141593F;
 
-        double d1 = x + 8 + MathHelper.sin(f) * maxSize / 8.0F;
-        double d2 = x + 8 - MathHelper.sin(f) * maxSize / 8.0F;
-        double d3 = z + 8 + MathHelper.cos(f) * maxSize / 8.0F;
-        double d4 = z + 8 - MathHelper.cos(f) * maxSize / 8.0F;
+        double d1 = x + MathHelper.sin(f) * maxSize / 8.0F;
+        double d2 = x - MathHelper.sin(f) * maxSize / 8.0F;
+        double d3 = z + MathHelper.cos(f) * maxSize / 8.0F;
+        double d4 = z - MathHelper.cos(f) * maxSize / 8.0F;
 
         double d5 = y + rand.nextInt(3) - 2;
         double d6 = y + rand.nextInt(3) - 2;

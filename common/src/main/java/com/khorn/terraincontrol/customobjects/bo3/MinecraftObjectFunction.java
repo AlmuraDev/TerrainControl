@@ -49,6 +49,7 @@ public class MinecraftObjectFunction extends BO3PlaceableFunction
         rotatedBlock.x = z;
         rotatedBlock.y = y;
         rotatedBlock.z = -x;
+        rotatedBlock.structurePart = structurePart;
         rotatedBlock.rotation = rotation.next();
 
         return rotatedBlock;
@@ -58,6 +59,8 @@ public class MinecraftObjectFunction extends BO3PlaceableFunction
     public void spawn(LocalWorld world, Random random, int x, int y, int z)
     {
         SpawnableObject object = world.getMojangStructurePart(structurePart.getPath());
+        if (object == null)
+            return; // Template missing (getTemplate gives null for some names)
         object.spawnForced(world, random, rotation, x, y, z);
     }
 

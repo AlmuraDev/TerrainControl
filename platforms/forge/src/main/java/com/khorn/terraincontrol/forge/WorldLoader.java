@@ -14,7 +14,6 @@ import com.khorn.terraincontrol.forge.generator.TXBiome;
 import com.khorn.terraincontrol.forge.util.WorldHelper;
 import com.khorn.terraincontrol.logging.LogMarker;
 
-import net.minecraft.client.multiplayer.WorldClient;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.dedicated.DedicatedServer;
 import net.minecraft.util.IntIdentityHashBiMap;
@@ -68,6 +67,12 @@ public final class WorldLoader
     }
 
     public void initializeTCWorld(World world) {
+        if (!(world instanceof WorldServer)) {
+            // Client worlds also come through MixinWorldProvider.setWorld. TC only generates on the server, and
+            // a client with configs for e.g. DIM-1 would crash below on the WorldServer cast.
+            return;
+        }
+
         final String worldName = WorldHelper.getWorldName(world);
 
         TerrainControl.log(LogMarker.INFO, "Checking if we have configs for \"{}\"..", worldName);

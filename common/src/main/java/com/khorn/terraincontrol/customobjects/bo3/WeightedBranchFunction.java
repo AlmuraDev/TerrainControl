@@ -27,6 +27,20 @@ public class WeightedBranchFunction extends BranchFunction implements Branch
         cumulativeChance = readArgs(args, true);
     }
 
+    private WeightedBranchFunction(BO3Config config)
+    {
+        super(config);
+    }
+
+    @Override
+    protected BranchFunction createEmptyCopy()
+    {
+        // Rotated copies must stay weighted (a plain BranchFunction picks branches differently)
+        WeightedBranchFunction copy = new WeightedBranchFunction(getHolder());
+        copy.cumulativeChance = cumulativeChance;
+        return copy;
+    }
+
     @Override
     public CustomObjectCoordinate toCustomObjectCoordinate(LocalWorld world, Random random, int x, int y, int z)
     {
