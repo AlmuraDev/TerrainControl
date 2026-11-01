@@ -118,6 +118,11 @@ class Vein
                                 if ((d13 * d13 + d14 * d14 + d15 * d15 < 1.0D) && sourceBlocks.contains(world.getMaterial(i3, i4, i5)))
                                 {
                                     world.setBlock(i3, i4, i5, material);
+                                    // A liquid "ore" (lava pockets) flows where a cave opened it, like Minecraft's own nether lava
+                                    if (material.isLiquid())
+                                    {
+                                        world.startFlowing(i3, i4, i5);
+                                    }
                                 }
                             }
                         }

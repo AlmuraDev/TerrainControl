@@ -228,6 +228,17 @@ public interface LocalWorld
     void setBlock(int x, int y, int z, LocalMaterialData material, NamedBinaryTag metaOrNull);
 
     /**
+     * Makes the liquid at the given position start flowing, like Minecraft's own springs: placed without a block update, a liquid
+     * stays put until a block next to it changes. Does nothing on platforms that don't need it.
+     * @param x Block x.
+     * @param y Block y.
+     * @param z Block z.
+     */
+    default void startFlowing(int x, int y, int z)
+    {
+    }
+
+    /**
      * Gets the NBT data associated with the given block.
      * @param x Block x.
      * @param y Block y.

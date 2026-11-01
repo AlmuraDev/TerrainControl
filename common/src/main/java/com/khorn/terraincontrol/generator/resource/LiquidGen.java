@@ -112,6 +112,7 @@ public class LiquidGen extends Resource
         if ((i == 3) && (j == 1))
         {
             world.setBlock(x, y, z, material);
+            world.startFlowing(x, y, z);
         }
     }
 

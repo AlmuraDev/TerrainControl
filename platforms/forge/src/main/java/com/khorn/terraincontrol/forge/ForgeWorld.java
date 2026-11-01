@@ -598,6 +598,30 @@ public class ForgeWorld implements LocalWorld
         this.world.markAndNotifyBlock(pos, chunk, oldState, newState, 2 | 16);
     }
 
+    @Override
+    public void startFlowing(int x, int y, int z)
+    {
+        // Like WorldGenLiquids, but a scheduled tick rather than an immediate one, so the liquid doesn't flow into chunks that
+        // aren't generated yet: a still liquid becomes its flowing form, which then flows on its first tick
+        if (y < TerrainControl.WORLD_DEPTH || y >= TerrainControl.WORLD_HEIGHT || this.getChunk(x, y, z) == null)
+        {
+            return;
+        }
+        BlockPos pos = new BlockPos(x, y, z);
+        IBlockState state = this.world.getBlockState(pos);
+        if (!(state.getBlock() instanceof BlockLiquid))
+        {
+            return;
+        }
+        if (state.getBlock() instanceof BlockStaticLiquid)
+        {
+            BlockDynamicLiquid flowing = BlockLiquid.getFlowingBlock(state.getMaterial());
+            state = flowing.getDefaultState().withProperty(BlockLiquid.LEVEL, state.getValue(BlockLiquid.LEVEL));
+            this.world.setBlockState(pos, state, 2);
+        }
+        this.world.scheduleUpdate(pos, state.getBlock(), state.getBlock().tickRate(this.world));
+    }
+
 
     @Override
     public int getHighestBlockYAt(int x, int z)
