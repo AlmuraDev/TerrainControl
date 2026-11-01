@@ -573,22 +573,25 @@ public class ForgeWorld implements LocalWorld
 
         // End Almura Hack
 
+        // Light and opacity of the block being replaced, read before it changes (as World.setBlockState does)
+        final IBlockState previousState = chunk.getBlockState(pos);
+        final int oldLight = previousState.getLightValue(this.world, pos);
+        final int oldOpacity = previousState.getLightOpacity(this.world, pos);
+
         IBlockState oldState = chunk.setBlockState(pos, newState);
-       // int oldLight = oldState.getLightValue(this.world, pos);
-       // int oldOpacity = oldState.getLightOpacity(this.world, pos);
 
         if (oldState == null) {
             return;
         }
 
-        // Relight and update players
-        /*
+        // Relight: without it every light source an object placed (glowstone in ruins, ...) stored its light but never spread it,
+        // leaving dark patches around it until a block next to it changed
         if (newState.getLightOpacity(this.world, pos) != oldOpacity || newState.getLightValue(this.world, pos) != oldLight)
         {
             this.world.profiler.startSection("checkLight");
             this.world.checkLight(pos);
             this.world.profiler.endSection();
-        } */
+        }
 
         // Notify world: (2 | 16) == update client, don't update observers
         // (Not world.setBlockState: the chunk already holds newState, so it would see no change and do nothing)
