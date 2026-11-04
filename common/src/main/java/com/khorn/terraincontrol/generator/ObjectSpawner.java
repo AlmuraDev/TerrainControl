@@ -19,6 +19,7 @@ public class ObjectSpawner
 
     private final ConfigProvider configProvider;
     private final LocalWorld world;
+    private FixedObjectPlacer fixedObjects;
 
     public ObjectSpawner(ConfigProvider configProvider, LocalWorld localWorld)
     {
@@ -70,6 +71,11 @@ public class ObjectSpawner
                 if (res instanceof Resource)
                     ((Resource) res).process(world, rand, hasVillage, chunkCoord);
             }
+
+            // Objects at fixed positions (FixedObjects.txt), after resources so they clear trees from their sites
+            if (this.fixedObjects == null)
+                this.fixedObjects = new FixedObjectPlacer(configProvider);
+            this.fixedObjects.populate(world, rand, chunkCoord);
 
             // Animals
             world.placePopulationMobs(biome, rand, chunkCoord);

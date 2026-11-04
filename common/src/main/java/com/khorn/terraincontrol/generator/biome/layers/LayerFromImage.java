@@ -7,6 +7,8 @@ import com.khorn.terraincontrol.generator.biome.ArraysCache;
 import com.khorn.terraincontrol.logging.LogMarker;
 
 import java.awt.image.BufferedImage;
+import java.awt.image.IndexColorModel;
+import java.awt.image.Raster;
 import java.io.File;
 import java.io.IOException;
 
@@ -15,7 +17,7 @@ import javax.imageio.ImageIO;
 public class LayerFromImage extends Layer
 {
 
-    private int[] biomeMap;
+    private short[] biomeMap;
     private int mapHeight;
     private int mapWidth;
     private int fillBiome = 0;
@@ -32,69 +34,87 @@ public class LayerFromImage extends Layer
         this.imageMode = config.imageMode;
         this.fillBiome = world.getBiomeByName(config.imageFillBiome).getIds().getGenerationId();
 
-        // Read from file
+        // Read from file. The image is converted one row at a time straight into a short[] of
+        // biome ids (rotated as it goes), so large maps never hold a full int[] copy of the pixels.
+        final File image = new File(config.settingsDir, config.imageFile);
         try
         {
-            final File image = new File(config.settingsDir, config.imageFile);
             final BufferedImage map = ImageIO.read(image);
+            if (map == null)
+                throw new IOException("Unsupported image format");
 
-            this.mapWidth = map.getWidth(null);
-            this.mapHeight = map.getHeight(null);
-            int[] colorMap = new int[this.mapHeight * this.mapWidth];
+            final int imageWidth = map.getWidth();
+            final int imageHeight = map.getHeight();
+            final boolean swapSides = config.imageOrientation == WorldConfig.ImageOrientation.West
+                    || config.imageOrientation == WorldConfig.ImageOrientation.East;
+            this.mapWidth = swapSides ? imageHeight : imageWidth;
+            this.mapHeight = swapSides ? imageWidth : imageHeight;
+            this.biomeMap = new short[imageWidth * imageHeight];
 
-            map.getRGB(0, 0, this.mapWidth, this.mapHeight, colorMap, 0, this.mapWidth);
-
-            // Rotate RGBs if need
-            switch (config.imageOrientation)
+            // Paletted images can be looked up per palette index instead of per colour
+            short[] paletteBiomes = null;
+            if (map.getColorModel() instanceof IndexColorModel)
             {
-                case North:
-                    // Default behavior - nothing to rotate
-                    break;
-                case South:
-                    // Rotate picture 180 degrees
-                    int[] colorMap180 = new int[colorMap.length];
-                    for (int y = 0; y < this.mapHeight; y++)
-                        for (int x = 0; x < this.mapWidth; x++)
-                            colorMap180[(this.mapHeight - 1 - y) * this.mapWidth + this.mapWidth - 1 - x] = colorMap[y * this.mapWidth + x];
-                    colorMap = colorMap180;
-                    break;
-                case West:
-                    // Rotate picture CW
-                    int[] colorMapCW = new int[colorMap.length];
-                    for (int y = 0; y < this.mapHeight; y++)
-                        for (int x = 0; x < this.mapWidth; x++)
-                            colorMapCW[x * this.mapHeight + this.mapHeight - 1 - y] = colorMap[y * this.mapWidth + x];
-                    colorMap = colorMapCW;
-                    this.mapWidth = map.getHeight(null);
-                    this.mapHeight = map.getWidth(null);
-                    break;
-                case East:
-                    // Rotate picture CCW
-                    int[] colorMapCCW = new int[colorMap.length];
-                    for (int y = 0; y < this.mapHeight; y++)
-                        for (int x = 0; x < this.mapWidth; x++)
-                            colorMapCCW[(this.mapWidth - 1 - x) * this.mapHeight + y] = colorMap[y * this.mapWidth + x];
-                    colorMap = colorMapCCW;
-                    this.mapWidth = map.getHeight(null);
-                    this.mapHeight = map.getWidth(null);
-                    break;
+                IndexColorModel palette = (IndexColorModel) map.getColorModel();
+                paletteBiomes = new short[palette.getMapSize()];
+                for (int i = 0; i < paletteBiomes.length; i++)
+                    paletteBiomes[i] = toBiome(config, palette.getRGB(i), fillBiome);
             }
 
-            this.biomeMap = new int[colorMap.length];
-
-            for (int nColor = 0; nColor < colorMap.length; nColor++)
+            final Raster raster = map.getRaster();
+            final int[] row = new int[imageWidth];
+            for (int y = 0; y < imageHeight; y++)
             {
-                int color = colorMap[nColor] & 0x00FFFFFF;
-
-                if (config.biomeColorMap.containsKey(color))
-                    this.biomeMap[nColor] = config.biomeColorMap.get(color);
+                if (paletteBiomes != null)
+                    raster.getSamples(0, y, imageWidth, 1, 0, row);
                 else
-                    this.biomeMap[nColor] = fillBiome;
+                    map.getRGB(0, y, imageWidth, 1, row, 0, imageWidth);
+
+                for (int x = 0; x < imageWidth; x++)
+                {
+                    short biome;
+                    if (paletteBiomes != null)
+                        biome = row[x] < paletteBiomes.length ? paletteBiomes[row[x]] : (short) fillBiome;
+                    else
+                        biome = toBiome(config, row[x], fillBiome);
+
+                    int index;
+                    switch (config.imageOrientation)
+                    {
+                        case South:
+                            // Rotate picture 180 degrees
+                            index = (imageHeight - 1 - y) * imageWidth + imageWidth - 1 - x;
+                            break;
+                        case West:
+                            // Rotate picture CW
+                            index = x * imageHeight + imageHeight - 1 - y;
+                            break;
+                        case East:
+                            // Rotate picture CCW
+                            index = (imageWidth - 1 - x) * imageHeight + y;
+                            break;
+                        default:
+                            // North: nothing to rotate
+                            index = y * imageWidth + x;
+                            break;
+                    }
+                    this.biomeMap[index] = biome;
+                }
             }
         } catch (IOException ioexception)
         {
-            TerrainControl.log(LogMarker.FATAL, ioexception.getStackTrace().toString());
+            TerrainControl.log(LogMarker.FATAL, "Could not read biome map {}: {}", image, ioexception.getMessage());
+            // Fall back to a 1x1 map of the fill biome so generation can continue
+            this.mapWidth = 1;
+            this.mapHeight = 1;
+            this.biomeMap = new short[] {(short) fillBiome};
         }
+    }
+
+    private static short toBiome(WorldConfig config, int rgb, int fillBiome)
+    {
+        Integer biome = config.biomeColorMap == null ? null : config.biomeColorMap.get(rgb & 0x00FFFFFF);
+        return (short) (biome != null ? biome : fillBiome);
     }
 
     @Override
