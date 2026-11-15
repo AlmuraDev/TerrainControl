@@ -11,6 +11,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.FallingBlock;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.Property;
 
 import java.util.regex.Pattern;
 
@@ -95,12 +96,25 @@ public final class NeoForgeMaterialData implements LocalMaterialData
     @Override
     public String getName()
     {
+        // The block, with the properties that differ from its default state: "minecraft:chest[facing=east]", not every property
         final Block block = this.state.getBlock();
-        if (this.state == block.defaultBlockState())
+        final BlockState defaultState = block.defaultBlockState();
+        final StringBuilder name = new StringBuilder(BuiltInRegistries.BLOCK.getKey(block).toString());
+        char separator = '[';
+        for (final Property<?> property : this.state.getProperties())
         {
-            return BuiltInRegistries.BLOCK.getKey(block).toString();
+            if (!this.state.getValue(property).equals(defaultState.getValue(property)))
+            {
+                name.append(separator).append(property.getName()).append('=').append(valueName(this.state, property));
+                separator = ',';
+            }
         }
-        return BlockStateParser.serialize(this.state);
+        return separator == '[' ? name.toString() : name.append(']').toString();
+    }
+
+    private static <T extends Comparable<T>> String valueName(final BlockState state, final Property<T> property)
+    {
+        return property.getName(state.getValue(property));
     }
 
     @Override

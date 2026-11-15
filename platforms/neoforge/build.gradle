@@ -32,6 +32,15 @@ dependencies {
 
 tasks.named('test', Test) {
     useJUnitPlatform()
+    // The config converter (ConfigConverterTest): -PconvertFrom=<1.12 configs> -PconvertTo=<new folder>
+    systemProperty('tc.convert.from', (project.findProperty('convertFrom') ?: '').toString())
+    systemProperty('tc.convert.to', (project.findProperty('convertTo') ?: '').toString())
+    // And its check of converted configs: -PconvertCheck=<folder>
+    systemProperty('tc.convert.check', (project.findProperty('convertCheck') ?: '').toString())
+    if (project.hasProperty('convertFrom') || project.hasProperty('convertCheck')) {
+        outputs.upToDateWhen { false }
+        testLogging.showStandardStreams = true
+    }
     testLogging {
         events 'failed'
         exceptionFormat = 'full'

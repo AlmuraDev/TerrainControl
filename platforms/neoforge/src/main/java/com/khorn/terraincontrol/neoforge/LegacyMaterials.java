@@ -15,9 +15,11 @@ import net.minecraft.util.datafix.fixes.References;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 
+import java.util.ArrayList;
 import java.util.Collections;
-import java.util.EnumMap;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -66,8 +68,8 @@ final class LegacyMaterials
     private final BlockState[] states = new BlockState[256 * 16];
     /** The 1.12 block each 26.3 block came from, the lowest id when several did (water for flowing and still water). */
     private final Map<Block, DefaultMaterial> materialOfBlock = new IdentityHashMap<>();
-    /** The 26.3 blocks each 1.12 block became: wool's sixteen colours, for one. */
-    private final Map<DefaultMaterial, Set<Block>> blocksOfMaterial = new EnumMap<>(DefaultMaterial.class);
+    /** The 26.3 blocks each 1.12 block id became: wool's sixteen colours, for one. */
+    private final List<Set<Block>> blocksOfId = new ArrayList<>(256);
 
     private LegacyMaterials()
     {
@@ -90,22 +92,20 @@ final class LegacyMaterials
             }
         }
 
-        for (final DefaultMaterial material : DefaultMaterial.values())
+        for (int id = 0; id < 256; id++)
         {
-            if (material.id < 0 || material.id >= 256)
-            {
-                continue;
-            }
+            // In data order, so a 1.12 block's first variant comes first
             final Set<Block> blocks = Collections.newSetFromMap(new IdentityHashMap<>());
+            final List<Block> ordered = new ArrayList<>();
             for (int data = 0; data < 16; data++)
             {
-                final BlockState state = this.states[material.id << 4 | data];
-                if (state != null)
+                final BlockState state = this.states[id << 4 | data];
+                if (state != null && blocks.add(state.getBlock()))
                 {
-                    blocks.add(state.getBlock());
+                    ordered.add(state.getBlock());
                 }
             }
-            this.blocksOfMaterial.put(material, Collections.unmodifiableSet(blocks));
+            this.blocksOfId.add(Collections.unmodifiableSet(new LinkedHashSet<>(ordered)));
         }
         // Lowest id first, so a block that came from several 1.12 blocks takes the first
         for (int id = 0; id < 256; id++)
@@ -115,7 +115,7 @@ final class LegacyMaterials
             {
                 continue;
             }
-            for (final Block block : this.blocksOfMaterial.getOrDefault(material, Set.of()))
+            for (final Block block : this.blocksOfId.get(id))
             {
                 this.materialOfBlock.putIfAbsent(block, material);
             }
@@ -149,15 +149,35 @@ final class LegacyMaterials
      */
     BlockState state(final DefaultMaterial material, final int data)
     {
-        if (material.id >= 0 && material.id < 256)
+        final BlockState state = state(material.id, data);
+        if (state == null)
         {
-            final BlockState state = this.states[material.id << 4 | (data & 15)];
-            if (state != null)
-            {
-                return state;
-            }
+            throw new IllegalArgumentException("No 26.3 block for the 1.12 block " + material + " with data " + data);
         }
-        throw new IllegalArgumentException("No 26.3 block for the 1.12 block " + material + " with data " + data);
+        return state;
+    }
+
+    /**
+     * Gets the 26.3 block state of a 1.12 block id and data value.
+     *
+     * @param id   The 1.12 block id.
+     * @param data Its data value, 0 to 15 (higher bits are dropped, as 1.12 did).
+     * @return The block state, or null when 1.12 had no block with that id.
+     */
+    BlockState state(final int id, final int data)
+    {
+        return id >= 0 && id < 256 ? this.states[id << 4 | (data & 15)] : null;
+    }
+
+    /**
+     * Gets the 26.3 blocks a 1.12 block id became, in the order of its data values.
+     *
+     * @param id The 1.12 block id.
+     * @return The blocks; empty when 1.12 had no block with that id.
+     */
+    Set<Block> blocks(final int id)
+    {
+        return id >= 0 && id < 256 ? this.blocksOfId.get(id) : Set.of();
     }
 
     /**
@@ -180,7 +200,6 @@ final class LegacyMaterials
      */
     boolean isOf(final DefaultMaterial material, final Block block)
     {
-        final Set<Block> blocks = this.blocksOfMaterial.get(material);
-        return blocks != null && blocks.contains(block);
+        return blocks(material.id).contains(block);
     }
 }

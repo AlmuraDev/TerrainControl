@@ -35,4 +35,6 @@ Thumbs.db
 .DS_Store
 # Copy of the live server configs, kept locally for reference
 /ServerConfigs/
+# The converter's output: the server configs converted to 26.3
+/ServerConfigs-26.3/
 /notes/
