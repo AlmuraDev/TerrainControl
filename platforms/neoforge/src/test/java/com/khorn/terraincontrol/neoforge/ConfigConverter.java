@@ -101,7 +101,8 @@ final class ConfigConverter
     /** A material set's words for groups of blocks (MaterialSet) */
     private static final Set<String> SET_WORDS = caseless("All", "Solid", "NonSolid");
 
-    private static final Pattern FUNCTION = Pattern.compile("^(\\s*)([A-Za-z]+)\\((.*)\\)(\\s*)$");
+    /** A function line; its closing bracket may be missing, which TerrainControl's reader allows (some of Almura's objects have that) */
+    private static final Pattern FUNCTION = Pattern.compile("^(\\s*)([A-Za-z]+)\\((.*?)(\\)?)(\\s*)$");
     private static final Pattern SETTING = Pattern.compile("^(\\s*)([A-Za-z]+)(\\s*[:=]\\s*)(.*?)(\\s*)$");
     /** A BO2's block: "x,z,y:block", optionally followed by "#direction@odds" for a branch */
     private static final Pattern BO2_BLOCK = Pattern.compile("^(\\s*-?\\d+\\s*,\\s*-?\\d+\\s*,\\s*-?\\d+\\s*:\\s*)([^#\\s]+)(.*)$");
@@ -173,7 +174,8 @@ final class ConfigConverter
         if (NUMBER.matcher(name).matches())
         {
             final int id = Integer.parseInt(name);
-            return this.legacy.blocks(id).isEmpty() ? -2 : id;
+            // Skulls have no block state in the flattening table, but are no junk (see skull)
+            return this.legacy.blocks(id).isEmpty() && id != SKULL ? -2 : id;
         }
         final String full = name.indexOf(':') < 0 ? "minecraft:" + name : name;
         final int packed = this.idsByOldName.getOrDefault(full, -1);
@@ -459,7 +461,8 @@ final class ConfigConverter
                 }
             }
         }
-        return name + "(" + String.join(separator(arguments), out) + ")";
+        // Without the closing bracket: the line keeps its own, if it has one
+        return name + "(" + String.join(separator(arguments), out);
     }
 
     private static boolean isPlantType(final String name)
@@ -564,7 +567,7 @@ final class ConfigConverter
             if (function.matches())
             {
                 final String converted = function(function.group(2), function.group(3));
-                return converted == null ? line : function.group(1) + converted + function.group(4);
+                return converted == null ? line : function.group(1) + converted + function.group(4) + function.group(5);
             }
         }
         final Matcher setting = SETTING.matcher(line);

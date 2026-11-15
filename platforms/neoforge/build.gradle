@@ -32,6 +32,8 @@ dependencies {
 
 tasks.named('test', Test) {
     useJUnitPlatform()
+    // Loading Almura's worlds (Cemaria: 2613 objects) takes room
+    maxHeapSize = '3g'
     // The config converter (ConfigConverterTest): -PconvertFrom=<1.12 configs> -PconvertTo=<new folder>
     systemProperty('tc.convert.from', (project.findProperty('convertFrom') ?: '').toString())
     systemProperty('tc.convert.to', (project.findProperty('convertTo') ?: '').toString())

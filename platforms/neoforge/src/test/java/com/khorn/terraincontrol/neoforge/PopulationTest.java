@@ -1,0 +1,211 @@
+package com.khorn.terraincontrol.neoforge;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
+import com.khorn.terraincontrol.LocalMaterialData;
+import com.khorn.terraincontrol.generator.ChunkBuffer;
+import com.khorn.terraincontrol.util.ChunkCoordinate;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderGetter;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.data.registries.VanillaRegistries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.levelgen.feature.Feature;
+import net.minecraft.world.level.material.Fluid;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+
+import java.io.File;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.TreeMap;
+
+/**
+ * TerrainControl's population on Almura's converted worlds, without a game: on chunks of TerrainControl's own terrain, it must run
+ * through every resource and custom object of the world without failing, and place blocks.
+ */
+final class PopulationTest
+{
+    @BeforeAll
+    static void startEngine()
+    {
+        TestEngine.start();
+    }
+
+    /** Chunks of TerrainControl's terrain, made when first asked for */
+    private static final class TerrainLevel implements PopulationLevel
+    {
+        final NeoForgeWorld world;
+        final Map<Long, BlockState[]> chunks = new HashMap<>();
+        final Map<String, Integer> placed = new TreeMap<>();
+        final Map<String, Integer> features = new TreeMap<>();
+        int blockEntities;
+        int flowing;
+
+        final int size;
+
+        TerrainLevel(final NeoForgeWorld world, final int size)
+        {
+            this.world = world;
+            this.size = size;
+        }
+
+        BlockState[] chunk(final int x, final int z)
+        {
+            return this.chunks.computeIfAbsent((long) (x >> 4) << 32 | (z >> 4) & 0xFFFFFFFFL, key -> {
+                final BlockState[] blocks = new BlockState[256 * 256];
+                java.util.Arrays.fill(blocks, Blocks.AIR.defaultBlockState());
+                final ChunkCoordinate coordinate = ChunkCoordinate.fromChunkCoords(x >> 4, z >> 4);
+                this.world.getTerrainGenerator().generate(new ChunkBuffer()
+                {
+                    @Override
+                    public ChunkCoordinate getChunkCoordinate()
+                    {
+                        return coordinate;
+                    }
+
+                    @Override
+                    public void setBlock(final int bx, final int by, final int bz, final LocalMaterialData material)
+                    {
+                        if (by >= 0 && by < 256)
+                        {
+                            blocks[by * 256 + (bz & 15) * 16 + (bx & 15)] = ((NeoForgeMaterialData) material).internalBlock();
+                        }
+                    }
+
+                    @Override
+                    public LocalMaterialData getBlock(final int bx, final int by, final int bz)
+                    {
+                        return NeoForgeMaterialData.of(by >= 0 && by < 256 ? blocks[by * 256 + (bz & 15) * 16 + (bx & 15)]
+                                : Blocks.AIR.defaultBlockState());
+                    }
+                });
+                return blocks;
+            });
+        }
+
+        @Override
+        public int getMinY()
+        {
+            return 0;
+        }
+
+        @Override
+        public int getMaxY()
+        {
+            return 255;
+        }
+
+        /** Population may only reach the 2 by 2 chunks it populates; anything further is air here */
+        boolean near(final int x, final int z)
+        {
+            return x >= -16 && z >= -16 && x < (this.size + 1) * 16 && z < (this.size + 1) * 16;
+        }
+
+        @Override
+        public BlockState getBlockState(final BlockPos pos)
+        {
+            return pos.getY() < 0 || pos.getY() > 255 || !near(pos.getX(), pos.getZ()) ? Blocks.AIR.defaultBlockState()
+                    : chunk(pos.getX(), pos.getZ())[pos.getY() * 256 + (pos.getZ() & 15) * 16 + (pos.getX() & 15)];
+        }
+
+        @Override
+        public void setBlock(final BlockPos pos, final BlockState state)
+        {
+            if (pos.getY() < 0 || pos.getY() > 255 || !near(pos.getX(), pos.getZ()))
+            {
+                throw new IllegalStateException("Population wrote outside its chunks: " + pos);
+            }
+            chunk(pos.getX(), pos.getZ())[pos.getY() * 256 + (pos.getZ() & 15) * 16 + (pos.getX() & 15)] = state;
+            this.placed.merge(NeoForgeMaterialData.of(state.getBlock().defaultBlockState()).getName(), 1, Integer::sum);
+        }
+
+        @Override
+        public void setBlockEntity(final CompoundTag tag)
+        {
+            this.blockEntities++;
+        }
+
+        @Override
+        public void scheduleFluidTick(final BlockPos pos, final Fluid fluid)
+        {
+            this.flowing++;
+        }
+
+        @Override
+        public int getSurface(final int x, final int z)
+        {
+            if (!near(x, z))
+            {
+                return 0;
+            }
+            final BlockState[] blocks = chunk(x, z);
+            for (int y = 255; y >= 0; y--)
+            {
+                if (!blocks[y * 256 + (z & 15) * 16 + (x & 15)].isAir())
+                {
+                    return y + 1;
+                }
+            }
+            return 0;
+        }
+
+        @Override
+        public boolean placeFeature(final ResourceKey<Feature> feature, final RandomSource random, final BlockPos pos)
+        {
+            // 26.3's features need a real level; counted only
+            this.features.merge(feature.identifier().getPath(), 1, Integer::sum);
+            return true;
+        }
+    }
+
+    private static TerrainLevel populate(final String name, final int size)
+    {
+        assumeTrue(TestEngine.configs() != null, "No converted configs (ServerConfigs-26.3)");
+        final File dir = TestEngine.configs().resolve("worlds").resolve(name).toFile();
+        assumeTrue(dir.isDirectory(), "No world " + name);
+        final HolderGetter<Biome> biomes = VanillaRegistries.createWorldLookup().lookupOrThrow(Registries.BIOME);
+        final NeoForgeWorld world = new NeoForgeWorld(name, dir, biomes);
+        world.initialize(20261115L);
+        final TerrainLevel level = new TerrainLevel(world, size);
+        world.lock().lock();
+        try
+        {
+            for (int chunkX = 0; chunkX < size; chunkX++)
+            {
+                for (int chunkZ = 0; chunkZ < size; chunkZ++)
+                {
+                    world.populate(level, new ChunkPos(chunkX, chunkZ));
+                }
+            }
+        } finally
+        {
+            world.lock().unlock();
+        }
+        System.out.println(name + ", " + size + " by " + size + " chunks populated: blocks " + level.placed + "; 26.3 features "
+                + level.features + "; block entities " + level.blockEntities + "; flowing " + level.flowing);
+        return level;
+    }
+
+    @Test
+    void keystonePopulates()
+    {
+        final TerrainLevel level = populate("Keystone", 4);
+        assertTrue(level.placed.values().stream().mapToInt(Integer::intValue).sum() > 0, "population placed no blocks");
+    }
+
+    @Test
+    void cemariaPopulates()
+    {
+        // Almura's busiest world: 449 biomes, 2613 objects
+        final TerrainLevel level = populate("Cemaria", 4);
+        assertTrue(level.placed.values().stream().mapToInt(Integer::intValue).sum() > 0, "population placed no blocks");
+    }
+}

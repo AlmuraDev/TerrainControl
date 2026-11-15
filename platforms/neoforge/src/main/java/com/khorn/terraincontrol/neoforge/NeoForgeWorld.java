@@ -18,8 +18,21 @@ import com.khorn.terraincontrol.logging.LogMarker;
 import com.khorn.terraincontrol.util.ChunkCoordinate;
 import com.khorn.terraincontrol.util.NamedBinaryTag;
 import com.khorn.terraincontrol.util.minecraftTypes.DefaultBiome;
-import com.khorn.terraincontrol.util.minecraftTypes.DefaultMaterial;
 import com.khorn.terraincontrol.util.minecraftTypes.TreeType;
+import com.khorn.terraincontrol.configuration.ReplacedBlocksMatrix;
+import com.khorn.terraincontrol.generator.ObjectSpawner;
+import com.khorn.terraincontrol.neoforge.util.NBTHelper;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.data.worldgen.features.CaveFeatures;
+import net.minecraft.data.worldgen.features.TreeFeatures;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.levelgen.feature.Feature;
+import net.minecraft.world.level.material.FluidState;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderGetter;
 import net.minecraft.resources.ResourceKey;
@@ -48,7 +61,8 @@ import java.util.concurrent.locks.ReentrantLock;
  * <p>TerrainControl's generators keep their working state in fields, and 26.3 generates chunks on several threads at once, so all
  * of TerrainControl's generating runs under {@link #lock()}, one chunk at a time.</p>
  *
- * <p>Population (resources, custom objects, trees, mobs: the features step) is not ported yet; its methods do nothing for now.</p>
+ * <p>Population runs in 26.3's features step ({@link #populate(PopulationLevel, ChunkPos)}): the blocks TerrainControl
+ * reads and writes are those of that step's level, within the chunks 1.12 let it write to.</p>
  */
 public final class NeoForgeWorld implements LocalWorld
 {
@@ -65,6 +79,7 @@ public final class NeoForgeWorld implements LocalWorld
     private BiomeGenerator biomeGenerator;
     private ChunkProviderTC terrain;
     private CustomObjectStructureCache structureCache;
+    private ObjectSpawner spawner;
 
     /**
      * Loads a world's configs.
@@ -102,6 +117,7 @@ public final class NeoForgeWorld implements LocalWorld
             this.biomeGenerator = TerrainControl.getBiomeModeManager().createCached(this.settings.getWorldConfig().biomeMode, this);
             this.terrain = new ChunkProviderTC(this.settings, this);
             this.structureCache = new CustomObjectStructureCache(this);
+            this.spawner = new ObjectSpawner(this.settings, this);
             this.initialized = true;
             TerrainControl.log(LogMarker.INFO, "World \"{}\" ready, seed {}", this.name, seed);
         } finally
@@ -287,30 +303,52 @@ public final class NeoForgeWorld implements LocalWorld
         return getBiomeById(this.biomeGenerator.getBiome(x, z));
     }
 
-    // ----- Default generators: 26.3 places its own structures; the rest comes with population -----
+    // ----- Population: TerrainControl's ObjectSpawner, in 26.3's features step -----
+
+    /**
+     * Where population is writing: the level of 26.3's features step, and the chunks TerrainControl may write to. As on 1.12, a
+     * chunk's population covers the 2 by 2 chunks from it (8 blocks in, so objects can reach over), which 26.3 lets it write to.
+     */
+    private record Population(PopulationLevel level, int chunkX, int chunkZ)
+    {
+        boolean contains(final int x, final int z)
+        {
+            final int dx = (x >> 4) - this.chunkX;
+            final int dz = (z >> 4) - this.chunkZ;
+            return dx >= 0 && dx <= 1 && dz >= 0 && dz <= 1;
+        }
+    }
+
+    private Population population;
+
+    /**
+     * Populates a chunk: TerrainControl's resources, custom objects, trees and the rest. Only under {@link #lock()}.
+     *
+     * @param level    The level it populates.
+     * @param chunkPos The chunk.
+     */
+    public void populate(final PopulationLevel level, final ChunkPos chunkPos)
+    {
+        this.population = new Population(level, chunkPos.x(), chunkPos.z());
+        try
+        {
+            this.spawner.populate(ChunkCoordinate.fromChunkCoords(chunkPos.x(), chunkPos.z()));
+        } finally
+        {
+            this.population = null;
+        }
+    }
+
+    private boolean writable(final int x, final int y, final int z)
+    {
+        return this.population != null && y >= this.population.level().getMinY() && y <= this.population.level().getMaxY()
+                && this.population.contains(x, z);
+    }
 
     @Override
     public void prepareDefaultStructures(final int chunkX, final int chunkZ, final boolean dry)
     {
-    }
-
-    @Override
-    public void placeDungeon(final Random rand, final int x, final int y, final int z)
-    {
-        warnOnce("dungeon", "Dungeons are not ported to 26.3 yet");
-    }
-
-    @Override
-    public void placeFossil(final Random rand, final ChunkCoordinate chunkCoord)
-    {
-        warnOnce("fossil", "Fossils are not ported to 26.3 yet");
-    }
-
-    @Override
-    public boolean placeTree(final TreeType type, final Random rand, final int x, final int y, final int z)
-    {
-        warnOnce("tree", "Vanilla trees are not ported to 26.3 yet");
-        return false;
+        // 26.3 places its own structures
     }
 
     @Override
@@ -326,18 +364,6 @@ public final class NeoForgeWorld implements LocalWorld
     }
 
     @Override
-    public void replaceBlocks(final ChunkCoordinate chunkCoord)
-    {
-    }
-
-    @Override
-    public void placePopulationMobs(final LocalBiome biome, final Random random, final ChunkCoordinate chunkCoord)
-    {
-    }
-
-    // ----- Population -----
-
-    @Override
     public void startPopulation(final ChunkCoordinate chunkCoord)
     {
     }
@@ -347,28 +373,171 @@ public final class NeoForgeWorld implements LocalWorld
     {
     }
 
-    // ----- Blocks: come with population -----
+    /**
+     * Places one of 26.3's features.
+     *
+     * @param key  The feature.
+     * @param rand TerrainControl's random.
+     * @param pos  Where.
+     * @return Whether it was placed.
+     */
+    private boolean placeFeature(final ResourceKey<Feature> key, final Random rand, final BlockPos pos)
+    {
+        if (this.population == null || !this.population.contains(pos.getX(), pos.getZ()))
+        {
+            return false;
+        }
+        return this.population.level().placeFeature(key, RandomSource.create(rand.nextLong()), pos);
+    }
+
+    @Override
+    public void placeDungeon(final Random rand, final int x, final int y, final int z)
+    {
+        placeFeature(CaveFeatures.MONSTER_ROOM, rand, new BlockPos(x, y, z));
+    }
+
+    @Override
+    public void placeFossil(final Random rand, final ChunkCoordinate chunkCoord)
+    {
+        // Under the surface, as 1.12's were
+        final int x = chunkCoord.getBlockXCenter();
+        final int z = chunkCoord.getBlockZCenter();
+        placeFeature(CaveFeatures.FOSSIL_COAL, rand, new BlockPos(x, Math.max(1, getHighestBlockYAt(x, z) - 15 - rand.nextInt(10)), z));
+    }
+
+    @Override
+    public boolean placeTree(final TreeType type, final Random rand, final int x, final int y, final int z)
+    {
+        // 1.12's trees, as 26.3 has them
+        final ResourceKey<Feature> tree = switch (type)
+        {
+            case Tree -> TreeFeatures.OAK;
+            case BigTree -> TreeFeatures.FANCY_OAK;
+            case Forest, Birch -> TreeFeatures.BIRCH;
+            case TallBirch -> TreeFeatures.SUPER_BIRCH_BEES_0002;
+            case HugeMushroom -> rand.nextBoolean() ? TreeFeatures.HUGE_BROWN_MUSHROOM : TreeFeatures.HUGE_RED_MUSHROOM;
+            case HugeRedMushroom -> TreeFeatures.HUGE_RED_MUSHROOM;
+            case HugeBrownMushroom -> TreeFeatures.HUGE_BROWN_MUSHROOM;
+            case SwampTree -> TreeFeatures.SWAMP_OAK;
+            case Taiga1 -> TreeFeatures.PINE;
+            case Taiga2 -> TreeFeatures.SPRUCE;
+            case HugeTaiga1 -> TreeFeatures.MEGA_PINE;
+            case HugeTaiga2 -> TreeFeatures.MEGA_SPRUCE;
+            case JungleTree -> TreeFeatures.MEGA_JUNGLE_TREE;
+            case GroundBush -> TreeFeatures.JUNGLE_BUSH;
+            case CocoaTree -> TreeFeatures.JUNGLE_TREE;
+            case Acacia -> TreeFeatures.ACACIA;
+            case DarkOak -> TreeFeatures.DARK_OAK;
+        };
+        return placeFeature(tree, rand, new BlockPos(x, y, z));
+    }
+
+    @Override
+    public void replaceBlocks(final ChunkCoordinate chunkCoord)
+    {
+        if (this.population == null || !this.settings.getWorldConfig().BiomeConfigsHaveReplacement)
+        {
+            return;
+        }
+        // Each column of the 2 by 2 chunks, as on 1.12
+        final PopulationLevel level = this.population.level();
+        final BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+        for (int x = chunkCoord.getBlockX(); x < chunkCoord.getBlockX() + 32; x++)
+        {
+            for (int z = chunkCoord.getBlockZ(); z < chunkCoord.getBlockZ() + 32; z++)
+            {
+                final LocalBiome biome = getBiome(x, z);
+                if (biome == null || !biome.getBiomeConfig().replacedBlocks.hasReplaceSettings())
+                {
+                    continue;
+                }
+                final ReplacedBlocksMatrix replacements = biome.getBiomeConfig().replacedBlocks;
+                final LocalMaterialData[][] table = replacements.compiledInstructions;
+                final int highestY = Math.min(replacements.getHighestReplacedY(), level.getMaxY());
+                for (int y = Math.max(level.getMinY(), 0); y <= highestY; y++)
+                {
+                    final BlockState state = level.getBlockState(pos.set(x, y, z));
+                    final int blockId = BuiltInRegistries.BLOCK.getId(state.getBlock());
+                    if (blockId >= table.length || table[blockId] == null || y >= table[blockId].length)
+                    {
+                        continue;
+                    }
+                    final LocalMaterialData replaceTo = table[blockId][y];
+                    if (replaceTo != null && replaceTo.getBlockId() != blockId)
+                    {
+                        level.setBlock(pos.immutable(), ((NeoForgeMaterialData) replaceTo).internalBlock());
+                    }
+                }
+            }
+        }
+    }
+
+    @Override
+    public void placePopulationMobs(final LocalBiome biome, final Random random, final ChunkCoordinate chunkCoord)
+    {
+        // The spawn lists name 1.12 mobs (Mo' Creatures among them); population mobs come once those have 26.3 mobs
+        warnOnce("mobs", "Population mobs are not ported to 26.3 yet");
+    }
+
+    // ----- Blocks -----
 
     @Override
     public LocalMaterialData getMaterial(final int x, final int y, final int z)
     {
-        return NeoForgeMaterialData.ofDefaultMaterial(DefaultMaterial.AIR, 0);
+        if (!writable(x, y, z))
+        {
+            return NeoForgeMaterialData.of(Blocks.AIR.defaultBlockState());
+        }
+        return NeoForgeMaterialData.of(this.population.level().getBlockState(new BlockPos(x, y, z)));
     }
 
     @Override
     public boolean isEmpty(final int x, final int y, final int z)
     {
-        return true;
+        return !writable(x, y, z) || this.population.level().getBlockState(new BlockPos(x, y, z)).isAir();
     }
 
     @Override
     public void setBlock(final int x, final int y, final int z, final LocalMaterialData material)
     {
+        setBlock(x, y, z, material, null);
     }
 
     @Override
     public void setBlock(final int x, final int y, final int z, final LocalMaterialData material, final NamedBinaryTag metaOrNull)
     {
+        if (!writable(x, y, z))
+        {
+            return;
+        }
+        final BlockPos pos = new BlockPos(x, y, z);
+        final PopulationLevel level = this.population.level();
+        level.setBlock(pos, ((NeoForgeMaterialData) material).internalBlock());
+        if (metaOrNull != null)
+        {
+            // A block entity, as a chest with its loot: loaded with the chunk
+            final CompoundTag tag = NBTHelper.toCompoundTag(metaOrNull);
+            tag.putInt("x", x);
+            tag.putInt("y", y);
+            tag.putInt("z", z);
+            level.setBlockEntity(tag);
+        }
+    }
+
+    @Override
+    public void startFlowing(final int x, final int y, final int z)
+    {
+        if (!writable(x, y, z))
+        {
+            return;
+        }
+        final BlockPos pos = new BlockPos(x, y, z);
+        final FluidState fluid = this.population.level().getBlockState(pos).getFluidState();
+        if (!fluid.isEmpty())
+        {
+            // Springs and liquid ores flow once the chunk is loaded
+            this.population.level().scheduleFluidTick(pos, fluid.getType());
+        }
     }
 
     @Override
@@ -380,31 +549,59 @@ public final class NeoForgeWorld implements LocalWorld
     @Override
     public int getLiquidHeight(final int x, final int z)
     {
+        for (int y = getHighestBlockYAt(x, z) - 1; y > 0; y--)
+        {
+            final LocalMaterialData material = getMaterial(x, y, z);
+            if (material.isLiquid())
+            {
+                return y + 1;
+            } else if (material.isSolid())
+            {
+                return -1;
+            }
+        }
         return -1;
     }
 
     @Override
     public int getSolidHeight(final int x, final int z)
     {
+        for (int y = getHighestBlockYAt(x, z) - 1; y > 0; y--)
+        {
+            if (getMaterial(x, y, z).isSolid())
+            {
+                return y + 1;
+            }
+        }
         return -1;
     }
 
     @Override
     public int getHighestBlockYAt(final int x, final int z)
     {
-        return -1;
+        if (!writable(x, 0, z))
+        {
+            return -1;
+        }
+        // The y above the highest block that is not air
+        return this.population.level().getSurface(x, z);
     }
 
     @Override
     public int getLightLevel(final int x, final int y, final int z)
     {
-        return -1;
+        if (!writable(x, y, z))
+        {
+            return -1;
+        }
+        // 26.3 lights chunks after their features, so this is the sky light only: full under the open sky, none below
+        return y >= getHighestBlockYAt(x, z) ? 15 : 0;
     }
 
     @Override
     public boolean isLoaded(final int x, final int y, final int z)
     {
-        return false;
+        return writable(x, y, z);
     }
 
     // ----- Other information -----
@@ -448,5 +645,7 @@ public final class NeoForgeWorld implements LocalWorld
     @Override
     public void spawnEntity(final String id, final float x, final float y, final float z, final int amount, final NamedBinaryTag metaOrNull)
     {
+        // The custom objects' entities name 1.12 mobs; they come with the mobs
+        warnOnce("entity", "Custom objects' entities are not ported to 26.3 yet");
     }
 }

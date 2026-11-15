@@ -77,6 +77,9 @@ final class ConfigConverterTest
         assertEquals("Block(0,0,0,minecraft:oak_log[axis=x])", bc("Block(0,0,0,LOG:4)"));
         assertEquals("RB(0,0,0,minecraft:mossy_cobblestone,50,minecraft:chest,loot.nbt,10)",
                 bc("RB(0,0,0,MOSSY_COBBLESTONE,50,minecraft:chest:2,loot.nbt,10)"));
+        // A line without its closing bracket, as TerrainControl reads it
+        assertEquals("B(-1,6,5,minecraft:skeleton_skull", bc("B(-1,6,5,144:1"));
+        assertEquals("RB(4,29,4,minecraft:chest[facing=south],loot.nbt,50", bc("RB(4,29,4,CHEST:3,loot.nbt,50"));
         // Skulls, whose kind 1.12 kept in their block entity
         assertEquals("B(0,0,0,minecraft:skeleton_skull)", bc("B(0,0,0,SKULL:1)"));
         assertEquals("Block(0,0,0,minecraft:skeleton_wall_skull[facing=east],skull.nbt)", bc("Block(0,0,0,minecraft:skull:5,skull.nbt)"));

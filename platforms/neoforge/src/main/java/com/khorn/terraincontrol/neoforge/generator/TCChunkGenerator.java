@@ -43,8 +43,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * config/TerrainControl/worlds.
  *
  * <p>26.3's terrain step is TerrainControl's chunk generation (terrain, surface, caves and canyons, all in one as on 1.12). Its
- * features step is where TerrainControl's population goes; that is not ported yet, so for now it places nothing, not even 26.3's
- * own features (they would plant the trees and ores of the vanilla biomes the chunks are saved as).</p>
+ * features step is TerrainControl's population (resources, custom objects, trees), in place of 26.3's own features (they would
+ * plant the trees and ores of the vanilla biomes the chunks are saved as).</p>
  */
 public final class TCChunkGenerator extends ChunkGenerator
 {
@@ -111,7 +111,16 @@ public final class TCChunkGenerator extends ChunkGenerator
     @Override
     public void applyBiomeDecoration(final WorldGenLevel level, final ChunkAccess chunk, final StructureManager structureManager)
     {
-        // TerrainControl's population goes here once it is ported
+        // TerrainControl's population, instead of the features of the vanilla biomes the chunks are saved as
+        final NeoForgeWorld world = world();
+        world.lock().lock();
+        try
+        {
+            world.populate(new RegionPopulationLevel(level, this), chunk.getPos());
+        } finally
+        {
+            world.lock().unlock();
+        }
     }
 
     @Override
