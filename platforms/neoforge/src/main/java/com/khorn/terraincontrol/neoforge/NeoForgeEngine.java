@@ -2,14 +2,18 @@ package com.khorn.terraincontrol.neoforge;
 
 import com.khorn.terraincontrol.LocalMaterialData;
 import com.khorn.terraincontrol.LocalWorld;
+import com.khorn.terraincontrol.TerrainControl;
 import com.khorn.terraincontrol.TerrainControlEngine;
 import com.khorn.terraincontrol.configuration.standard.PluginStandardValues;
 import com.khorn.terraincontrol.exception.InvalidConfigException;
+import com.khorn.terraincontrol.logging.LogMarker;
 import com.khorn.terraincontrol.neoforge.util.NBTHelper;
 import com.khorn.terraincontrol.util.NamedBinaryTag;
 import com.khorn.terraincontrol.util.minecraftTypes.DefaultMaterial;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import net.minecraft.core.HolderGetter;
 import net.minecraft.nbt.TagParser;
+import net.minecraft.world.level.biome.Biome;
 
 import java.io.File;
 import java.util.Map;
@@ -18,12 +22,48 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * TerrainControl's engine on NeoForge.
  *
- * <p>Worlds are added once the chunk generator is ported; until then {@link #getWorld(String)} knows none.</p>
+ * <p>A world is loaded the first time its dimension's generator asks for it ({@link #loadWorld(String, HolderGetter)}): its configs
+ * are those in worlds/&lt;name&gt; of TerrainControl's folder.</p>
  */
 public final class NeoForgeEngine extends TerrainControlEngine
 {
     private final File configsDir;
-    private final Map<String, LocalWorld> worlds = new ConcurrentHashMap<>();
+    private final Map<String, NeoForgeWorld> worlds = new ConcurrentHashMap<>();
+
+    /**
+     * Gets the engine, once TerrainControl has started.
+     *
+     * @return The engine.
+     * @throws IllegalStateException Before TerrainControl has started.
+     */
+    public static NeoForgeEngine get()
+    {
+        if (!(TerrainControl.getEngine() instanceof final NeoForgeEngine engine))
+        {
+            throw new IllegalStateException("TerrainControl has not started yet");
+        }
+        return engine;
+    }
+
+    /**
+     * Gets a TerrainControl world, loading its configs the first time it is asked for.
+     *
+     * @param name   The world's name, the name of its folder in worlds.
+     * @param biomes The server's biomes.
+     * @return The world.
+     */
+    public NeoForgeWorld loadWorld(final String name, final HolderGetter<Biome> biomes)
+    {
+        return this.worlds.computeIfAbsent(name, worldName -> {
+            final File worldDir = new File(new File(this.configsDir, "worlds"), worldName);
+            if (!worldDir.isDirectory())
+            {
+                throw new IllegalArgumentException("No TerrainControl configs for world \"" + worldName + "\": " + worldDir + " is no folder");
+            }
+            TerrainControl.log(LogMarker.INFO, "Loading configs for world \"{}\"", worldName);
+            return new NeoForgeWorld(worldName, worldDir, biomes);
+        });
+    }
 
     /**
      * Creates the engine.

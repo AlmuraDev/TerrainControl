@@ -35,6 +35,11 @@ tasks.named('test', Test) {
     // The config converter (ConfigConverterTest): -PconvertFrom=<1.12 configs> -PconvertTo=<new folder>
     systemProperty('tc.convert.from', (project.findProperty('convertFrom') ?: '').toString())
     systemProperty('tc.convert.to', (project.findProperty('convertTo') ?: '').toString())
+    // The converted configs, for the tests that load Almura's worlds (skipped when they are not there)
+    systemProperty('tc.test.configs', rootProject.file('ServerConfigs-26.3').absolutePath)
+    if (rootProject.file('ServerConfigs-26.3/worlds').isDirectory()) {
+        systemProperty('terraincontrol.configs', rootProject.file('ServerConfigs-26.3').absolutePath)
+    }
     // And its check of converted configs: -PconvertCheck=<folder>
     systemProperty('tc.convert.check', (project.findProperty('convertCheck') ?: '').toString())
     if (project.hasProperty('convertFrom') || project.hasProperty('convertCheck')) {

@@ -22,7 +22,6 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -34,16 +33,10 @@ import java.util.List;
  */
 final class MaterialsTest
 {
-    @TempDir
-    static Path configs;
-
     @BeforeAll
     static void startEngine()
     {
-        if (TerrainControl.getEngine() == null)
-        {
-            TerrainControl.setEngine(new NeoForgeEngine(configs.toFile()));
-        }
+        TestEngine.start();
     }
 
     private static BlockState legacy(final DefaultMaterial material, final int data)

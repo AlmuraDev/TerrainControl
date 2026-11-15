@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import com.khorn.terraincontrol.TerrainControl;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -17,16 +16,10 @@ import java.util.List;
  */
 final class ConfigConverterTest
 {
-    @TempDir
-    static Path configs;
-
     @BeforeAll
     static void startEngine()
     {
-        if (TerrainControl.getEngine() == null)
-        {
-            TerrainControl.setEngine(new NeoForgeEngine(configs.toFile()));
-        }
+        TestEngine.start();
     }
 
     private static String bc(final String line)
