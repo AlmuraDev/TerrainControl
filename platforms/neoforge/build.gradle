@@ -20,6 +20,16 @@ repositories {
     mavenCentral()
 }
 
+// Dev runs only, never the jar: a dimension to try a converted world in (/execute in terraincontrol:keystone run tp @s 0 250 0)
+sourceSets {
+    dev {
+        java.srcDirs = []
+        resources.srcDirs = ['src/dev/resources']
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
+    }
+}
+
 dependencies {
     // The generator itself; its classes ride in this jar (see jar below), as they did in the 1.12 Forge jar
     implementation project(':common')
@@ -62,6 +72,11 @@ neoForge {
             ideName = "TerrainControl ${it.name.capitalize()}"
             logLevel = org.slf4j.event.Level.INFO
             jvmArguments.addAll('-Xms1024M', '-Xmx4096M')
+            sourceSet = sourceSets.dev
+            // TerrainControl's configs: the converted ones (ServerConfigs-26.3) when they are there, else the run's config/TerrainControl
+            if (rootProject.file('ServerConfigs-26.3/worlds').isDirectory()) {
+                systemProperty('terraincontrol.configs', rootProject.file('ServerConfigs-26.3').absolutePath)
+            }
         }
         client {
             client()
@@ -79,6 +94,7 @@ neoForge {
             sourceSet sourceSets.main
             // common is part of the mod, not a library of its own
             sourceSet project(':common').sourceSets.main
+            sourceSet sourceSets.dev
         }
     }
 

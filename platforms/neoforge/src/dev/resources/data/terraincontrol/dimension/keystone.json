@@ -1,0 +1,7 @@
+{
+  "type": "terraincontrol:tall",
+  "generator": {
+    "type": "terraincontrol:terraincontrol",
+    "world": "Keystone"
+  }
+}
