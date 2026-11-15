@@ -1,0 +1,89 @@
+// TerrainControl for Minecraft 26.3 on NeoForge, as Almura 4.0 runs it
+
+plugins {
+    id 'java-library'
+    // see https://projects.neoforged.net/neoforged/moddevgradle (the same version as Almura 4.0)
+    id 'net.neoforged.moddev' version '2.0.148'
+}
+
+base {
+    archivesName = mod_id
+}
+
+description = 'TerrainControl for Minecraft 26.3 on NeoForge'
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(java_version)
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // The generator itself; its classes ride in this jar (see jar below), as they did in the 1.12 Forge jar
+    implementation project(':common')
+}
+
+neoForge {
+    version = neoforge_version
+
+    runs {
+        configureEach {
+            ideName = "TerrainControl ${it.name.capitalize()}"
+            logLevel = org.slf4j.event.Level.INFO
+            jvmArguments.addAll('-Xms1024M', '-Xmx4096M')
+        }
+        client {
+            client()
+            gameDirectory = project.file('runs/client')
+        }
+        server {
+            server()
+            programArgument('--nogui')
+            gameDirectory = project.file('runs/server')
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet sourceSets.main
+            // common is part of the mod, not a library of its own
+            sourceSet project(':common').sourceSets.main
+        }
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+processResources {
+    var expandProps = [
+            'version'                      : version,
+            'mod_id'                       : mod_id,
+            'mod_name'                     : mod_name,
+            'mod_authors'                  : mod_authors,
+            'mod_license'                  : mod_license,
+            'mod_description'              : mod_description,
+            'minecraft_version_range'      : minecraft_version_range,
+            'neoforge_version'             : neoforge_version,
+            'neoforge_loader_version_range': neoforge_loader_version_range
+    ]
+    filesMatching('META-INF/neoforge.mods.toml') {
+        expand expandProps
+    }
+    inputs.properties(expandProps)
+}
+
+tasks.named('jar', Jar) {
+    // One jar: common's classes beside the mod's
+    from(project(':common').sourceSets.main.output)
+    manifest {
+        attributes([
+                'Implementation-Title'  : mod_name,
+                'Implementation-Version': project.version,
+                'Implementation-Vendor' : mod_authors
+        ])
+    }
+}

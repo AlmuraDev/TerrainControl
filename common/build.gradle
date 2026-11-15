@@ -1,18 +1,27 @@
-// Build script for the Common parts of Terrain Control
+// The core of TerrainControl: terrain, biomes, resources, custom objects and their configs, free of Minecraft
 
-apply plugin: 'java'
+plugins {
+    id 'java-library'
+}
 
-// Project properties
-archivesBaseName = "terraincontrol-common"
-description = "Core files of TerrainControl"
+base {
+    archivesName = 'terraincontrol-common'
+}
 
-repositories
-{
-    mavenLocal()
+description = 'Core files of TerrainControl'
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(java_version)
+}
+
+repositories {
     mavenCentral()
 }
 
-dependencies
-{
-    testCompile 'junit:junit:4+'
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
 }
