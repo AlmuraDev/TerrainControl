@@ -37,12 +37,20 @@ public class StringHelperTest
     @Test
     public void testSpecifiesBlockData()
     {
-        assertFalse(StringHelper.specifiesBlockData("wool"));
-        assertTrue(StringHelper.specifiesBlockData("wool:0"));
-        assertTrue(StringHelper.specifiesBlockData("wool:1"));
-        assertFalse(StringHelper.specifiesBlockData("minecraft:wool"));
-        assertTrue(StringHelper.specifiesBlockData("minecraft:wool:0"));
-        assertTrue(StringHelper.specifiesBlockData("minecraft:wool:1"));
+        assertFalse(StringHelper.specifiesBlockData("oak_log"));
+        assertFalse(StringHelper.specifiesBlockData("minecraft:oak_log"));
+        assertTrue(StringHelper.specifiesBlockData("minecraft:oak_log[]"));
+        assertTrue(StringHelper.specifiesBlockData("minecraft:oak_log[axis=x]"));
+        assertTrue(StringHelper.specifiesBlockData("minecraft:oak_stairs[facing=east,half=top]"));
+    }
+
+    @Test
+    public void testCommasInBlockStates()
+    {
+        assertArrayEquals(new String[] {"minecraft:oak_stairs[facing=east,half=top]", "minecraft:stone"},
+                StringHelper.readCommaSeperatedString("minecraft:oak_stairs[facing=east,half=top], minecraft:stone"));
+        assertArrayEquals(new String[] {"0", "1", "2", "minecraft:oak_stairs[facing=east,half=top]", "chest.nbt"},
+                StringHelper.readCommaSeperatedString("0,1,2,minecraft:oak_stairs[facing=east,half=top],chest.nbt"));
     }
 
 }

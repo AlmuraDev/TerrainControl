@@ -160,9 +160,10 @@ public abstract class StringHelper
                 lastFound = index + 1;
             }
 
-            if (c == '(')
+            // A block state's properties are separated by commas too: minecraft:oak_log[axis=x]
+            if (c == '(' || c == '[')
                 inBracer++;
-            if (c == ')')
+            if (c == ')' || c == ']')
                 inBracer--;
 
             index++;
@@ -178,31 +179,14 @@ public abstract class StringHelper
     }
 
     /**
-     * Gets whether the input specifies which block data should be used.
-     * <p>
-     * A few examples: "WOOL" doesn't specify block data, while "WOOL:0" does.
-     * "buildcraft:blockRedLaser" doesn't specify block data, even though it
-     * contains a colon. However, "buildcraft:blockRedLaser:0" does specify
-     * block data.
-     * 
-     * @param materialString
-     *            The input.
-     * @return True if the input specifies block data, false otherwise.
+     * Gets whether the given material names a block state rather than just a block: {@code minecraft:oak_log[axis=x]} does,
+     * {@code minecraft:oak_log} does not. {@code minecraft:stone[]} names the block's default state.
+     *
+     * @param materialString The material, as in the configs.
+     * @return Whether it names a block state.
      */
     public static boolean specifiesBlockData(String materialString) {
-        int indexOfColon = materialString.lastIndexOf(":");
-        if (indexOfColon > 0)
-        {
-            String blockDataString = materialString.substring(indexOfColon + 1);
-            try {
-                Integer.parseInt(blockDataString);
-                // If we have reached this point, the text after the last colon
-                // was numeric, so it was indeed block data
-                return true;
-            } catch (NumberFormatException e) {
-            }
-        }
-        return false;
+        return materialString.indexOf('[') >= 0;
     }
 
     private StringHelper()

@@ -48,11 +48,11 @@ public class MaterialSetEntry
     public String toString()
     {
         String output = material.toString();
-        if (includesBlockData && material.getBlockData() == 0)
+        if (includesBlockData && output.indexOf('[') < 0)
         {
-            // Turn things like "WOOL" back into "WOOL:0" (material.toString
-            // never includes "*:0")
-            return output + ":0";
+            // A check of the block's default state: turn "minecraft:oak_log" back into "minecraft:oak_log[]" (material.toString
+            // leaves the brackets out for a default state), or it would read back as a check of any oak log
+            return output + "[]";
         }
         return output;
     }

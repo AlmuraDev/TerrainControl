@@ -23,6 +23,19 @@ repositories {
 dependencies {
     // The generator itself; its classes ride in this jar (see jar below), as they did in the 1.12 Forge jar
     implementation project(':common')
+
+    // Tests run in NeoForge's test environment (see unitTest below), so they see 26.3's real blocks
+    testImplementation(platform('org.junit:junit-bom:5.11.4'))
+    testImplementation('org.junit.jupiter:junit-jupiter')
+    testRuntimeOnly('org.junit.platform:junit-platform-launcher')
+}
+
+tasks.named('test', Test) {
+    useJUnitPlatform()
+    testLogging {
+        events 'failed'
+        exceptionFormat = 'full'
+    }
 }
 
 neoForge {
@@ -51,6 +64,12 @@ neoForge {
             // common is part of the mod, not a library of its own
             sourceSet project(':common').sourceSets.main
         }
+    }
+
+    // Tests start the game's mod loading (no window, no server), so the block registry is there
+    unitTest {
+        enable()
+        testedMod = mods."${mod_id}"
     }
 }
 

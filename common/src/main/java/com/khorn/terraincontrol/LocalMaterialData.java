@@ -3,8 +3,10 @@ package com.khorn.terraincontrol;
 import com.khorn.terraincontrol.util.minecraftTypes.DefaultMaterial;
 
 /**
- * Represents one of Minecraft's materials. Also includes its data value.
- * Immutable.
+ * Represents one of Minecraft's block states. Immutable.
+ *
+ * <p>On 1.12 a material was a block id with a data value (0 to 15); since Minecraft 1.13 it is a block state, a block with its
+ * properties, so the data value is gone. {@link DefaultMaterial} still names the 1.12 blocks, for the code that asks for them.</p>
  * 
  * @see TerrainControlEngine#readMaterial(String)
  * @see TerrainControlEngine#toLocalMaterialData(DefaultMaterial, int)
@@ -13,9 +15,8 @@ public interface LocalMaterialData
 {
 
     /**
-     * Gets the name of this material. This will be the name given by Mojang.
-     * Block data is appended to the name, separated with a colon, like
-     * "minecraft:wool:2".
+     * Gets the name of this material, as a block state: the block's id, with its properties in brackets when they differ from the
+     * block's default state, like "minecraft:oak_log[axis=x]".
      * 
      * @return The name of this material.
      */
@@ -30,21 +31,12 @@ public interface LocalMaterialData
     String toString();
 
     /**
-     * Gets the internal block id. At the moment, all of Minecraft's vanilla
-     * materials have a static id, but this can change in the future. Mods
-     * already have dynamic ids.
-     * 
-     * @return The internal block id.
+     * Gets the internal block id: the block's number in the block registry, the same for all of its states. It is only good while
+     * the server runs, never for saving.
+     *
+     * @return The internal block id, 0 or more.
      */
     int getBlockId();
-
-    /**
-     * Gets the internal block data. Block data represents things like growth
-     * stage and rotation.
-     * 
-     * @return The internal block data.
-     */
-    byte getBlockData();
 
     /**
      * Gets whether this material is a liquid, like water or lava.
@@ -98,20 +90,9 @@ public interface LocalMaterialData
     boolean isMaterial(DefaultMaterial material);
 
     /**
-     * Gets an instance with the same material as this object, but with the
-     * given block data. This instance is not modified.
+     * Gets the default state of this material's block. This instance is not modified.
      *
-     * @param newData
-     *            The new block data.
-     * @return An instance with the given block data.
-     */
-    LocalMaterialData withBlockData(int newData);
-
-    /**
-     * Gets an instance with the same material as this object, but the default
-     * block data of the material. This instance is not modified.
-     *
-     * @return An instance with the default block data.
+     * @return The block's default state.
      */
     LocalMaterialData withDefaultBlockData();
 
@@ -127,9 +108,7 @@ public interface LocalMaterialData
     boolean equals(Object other);
 
     /**
-     * Gets the hashCode of the material, based on the block id and block data.
-     * The hashCode must be unique, which is possible considering that there are
-     * only 4096 * 16 possible materials.
+     * Gets the hashCode of the material, unique for its block state.
      * 
      * @return The unique hashCode.
      */
@@ -137,7 +116,7 @@ public interface LocalMaterialData
     int hashCode();
 
     /**
-     * Gets the hashCode of the material, based on only the block id. No
+     * Gets the hashCode of the material, based on only its block. No
      * hashCode returned by this method may be the same as any hashCode returned
      * by {@link #hashCode()}.
      * 

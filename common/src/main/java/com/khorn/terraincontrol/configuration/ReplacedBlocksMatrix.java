@@ -32,7 +32,8 @@ public class ReplacedBlocksMatrix
          */
         public ReplacedBlocksInstruction(String instruction, int maxAllowedY) throws InvalidConfigException
         {
-            String[] values = instruction.split(",");
+            // Not split(","): a block state has commas between its properties
+            String[] values = StringHelper.readCommaSeperatedString(instruction);
             if (values.length == 5)
             {
                 // Replace in TC 2.3 style found
@@ -192,7 +193,14 @@ public class ReplacedBlocksMatrix
             return;
         }
 
-        this.compiledInstructions = new LocalMaterialData[TerrainControl.SUPPORTED_BLOCK_IDS][];
+        // Indexed by block id; 26.3 numbers blocks by registry order, so a modpack can go past 1.12's 4096. Ids above the highest
+        // replaced block are left out: whoever reads the table checks the id against its length first.
+        int highestBlockId = 0;
+        for (ReplacedBlocksInstruction instruction : instructions)
+        {
+            highestBlockId = Math.max(highestBlockId, instruction.getFrom().getBlockId());
+        }
+        this.compiledInstructions = new LocalMaterialData[highestBlockId + 1][];
         for (ReplacedBlocksInstruction instruction : instructions)
         {
             int fromBlockId = instruction.getFrom().getBlockId();
