@@ -15,6 +15,7 @@ import com.khorn.terraincontrol.generator.ChunkProviderTC;
 import com.khorn.terraincontrol.generator.SpawnableObject;
 import com.khorn.terraincontrol.generator.biome.BiomeGenerator;
 import com.khorn.terraincontrol.logging.LogMarker;
+import com.khorn.terraincontrol.neoforge.api.TerrainControlBiomes;
 import com.khorn.terraincontrol.util.ChunkCoordinate;
 import com.khorn.terraincontrol.util.NamedBinaryTag;
 import com.khorn.terraincontrol.util.minecraftTypes.DefaultBiome;
@@ -207,7 +208,11 @@ public final class NeoForgeWorld implements LocalWorld
             // Its own 26.3 biome, from the biome exporter's datapack
             final ResourceKey<Biome> key = NeoForgeBiome.registryKey(this.name, biomeConfig.getName());
             saved = this.biomes.get(key).map(holder -> (Holder<Biome>) holder).orElse(null);
-            if (saved == null)
+            if (saved != null)
+            {
+                // For other mods to show the biome's name (the clients have no translation for it)
+                TerrainControlBiomes.register(key, biomeConfig.getName());
+            } else
             {
                 warnOnce("biome", "World \"{}\" has custom biomes without a 26.3 biome (such as {}): export the biomes to the server's"
                         + " datapack. Until then they are saved as the vanilla biome they replace to, or plains", this.name, key.identifier());

@@ -83,6 +83,38 @@ final class BiomeExportTest
         System.out.println("Orilla's map: " + seen);
     }
 
+    /** With its biomes in the registry (as the datapack puts them on a server), Orilla names them for other mods */
+    @Test
+    void orillasBiomesHaveTheirNames()
+    {
+        assumeTrue(TestEngine.configs() != null, "No converted configs (ServerConfigs-26.3)");
+        final net.minecraft.core.HolderGetter<Biome> vanilla = VanillaRegistries.createWorldLookup().lookupOrThrow(Registries.BIOME);
+        // The vanilla biomes, and any terraincontrol biome, as the exported datapack would give them
+        final net.minecraft.core.HolderGetter<Biome> biomes = new net.minecraft.core.HolderGetter<>()
+        {
+            @Override
+            public java.util.Optional<net.minecraft.core.Holder.Reference<Biome>> get(final net.minecraft.resources.ResourceKey<Biome> id)
+            {
+                return id.identifier().getNamespace().equals("terraincontrol")
+                        ? java.util.Optional.of(net.minecraft.core.Holder.Reference.createStandAlone(this, id))
+                        : vanilla.get(id);
+            }
+
+            @Override
+            public java.util.Optional<net.minecraft.core.HolderSet.Named<Biome>> get(final net.minecraft.tags.TagKey<Biome> id)
+            {
+                return vanilla.get(id);
+            }
+        };
+        final NeoForgeWorld world = new NeoForgeWorld("Orilla", TestEngine.configs().resolve("worlds/Orilla").toFile(), biomes);
+        final var lakeshore = NeoForgeBiome.registryKey("Orilla", "Lakeshore");
+        assertEquals("terraincontrol:orilla/lakeshore", lakeshore.identifier().toString());
+        assertEquals(java.util.Optional.of("Lakeshore"), com.khorn.terraincontrol.neoforge.api.TerrainControlBiomes.displayName(lakeshore));
+        assertEquals(lakeshore, ((NeoForgeBiome) world.getBiomeByName("Lakeshore")).getSavedBiome().unwrapKey().orElseThrow());
+        assertEquals(java.util.Optional.empty(),
+                com.khorn.terraincontrol.neoforge.api.TerrainControlBiomes.displayName(net.minecraft.world.level.biome.Biomes.PLAINS));
+    }
+
     /**
      * Exports every world's custom biomes into a datapack: {@code gradlew :platforms:neoforge:test --tests *BiomeExportTest
      * -PbiomesTo=<datapack folder>}.
