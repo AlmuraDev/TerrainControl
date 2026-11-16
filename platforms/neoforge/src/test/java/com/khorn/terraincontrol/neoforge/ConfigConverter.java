@@ -8,6 +8,18 @@ import net.minecraft.util.datafix.fixes.BlockStateData;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 
+import com.mojang.serialization.Dynamic;
+import net.minecraft.SharedConstants;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtAccounter;
+import net.minecraft.nbt.NbtIo;
+import net.minecraft.nbt.NbtOps;
+import net.minecraft.nbt.Tag;
+import net.minecraft.util.datafix.DataFixers;
+import net.minecraft.util.datafix.fixes.References;
+
+import java.io.ByteArrayInputStream;
+import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.lang.reflect.Field;
@@ -123,6 +135,10 @@ final class ConfigConverter
         int converted;
         int expanded;
         int junk;
+        /** Block entity files (.nbt) upgraded */
+        int nbtFiles;
+        /** Flower pots that became potted plants */
+        int pots;
         /** Blocks it could not convert (or, checking, that are no 26.3 block state); the first thousand are in {@link #unresolved} */
         int failed;
         final List<String> unresolved = new ArrayList<>();
@@ -141,6 +157,8 @@ final class ConfigConverter
                     + "Blocks converted: " + this.converted + "\n"
                     + "1.12 blocks checked for in all their 26.3 variants: " + this.expanded + "\n"
                     + "Numbers with no 1.12 block (air on 1.12): " + this.junk + "\n"
+                    + "Block entity files (.nbt) upgraded: " + this.nbtFiles + "\n"
+                    + "Flower pots with a pot file, now potted plants: " + this.pots + "\n"
                     + "Not converted (left as they were): " + this.failed + "\n";
         }
     }
@@ -432,10 +450,20 @@ final class ConfigConverter
             int i = 3;
             while (i < args.size())
             {
-                out.add(single(args.get(i++)));
-                if (i < args.size() && !NUMBER.matcher(args.get(i)).matches())
+                final String block = args.get(i++);
+                final String nbt = i < args.size() && !NUMBER.matcher(args.get(i)).matches() ? args.get(i) : null;
+                final String potted = nbt == null ? null : potted(block, nbt);
+                if (potted != null)
                 {
-                    out.add(args.get(i++));
+                    out.add(potted);
+                    i++;
+                } else
+                {
+                    out.add(single(block));
+                    if (nbt != null)
+                    {
+                        out.add(args.get(i++));
+                    }
                 }
                 if (i < args.size())
                 {
@@ -455,6 +483,12 @@ final class ConfigConverter
                 if (i == 0 && blocks.plantFirst())
                 {
                     out.add(isPlantType(arg) ? arg : single(arg));
+                } else if (i == 3 && blocks.singles().contains(3) && args.size() > 4 && potted(arg, args.get(4)) != null)
+                {
+                    // A flower pot with its pot file: the potted plant, and the file is no longer needed
+                    out.add(potted(arg, args.get(4)));
+                    out.addAll(args.subList(5, args.size()));
+                    break;
                 } else
                 {
                     out.add(blocks.singles().contains(i) ? single(arg) : arg);
@@ -582,6 +616,119 @@ final class ConfigConverter
         return line;
     }
 
+    // ----- Block entities (.nbt) -----
+
+    /** 1.12's flower pot block */
+    private static final int FLOWER_POT = 140;
+
+    /** The folder of the config being converted, for the .nbt files its lines name */
+    private Path currentDir;
+
+    /**
+     * Gets the 26.3 block of a 1.12 flower pot with its pot file. 1.12 kept a pot's plant in its block entity; since 1.13 the plant is
+     * part of the block (minecraft:potted_cactus), and a pot has no block entity left.
+     *
+     * @param block The 1.12 block, which must be a flower pot.
+     * @param nbt   Its .nbt file, relative to the config.
+     * @return The potted block, a plain pot when the file names no plant 26.3 pots; null when the block is no pot or the file is no
+     *         pot's.
+     */
+    String potted(final String block, final String nbt)
+    {
+        if (this.checking || this.currentDir == null)
+        {
+            return null;
+        }
+        final Legacy legacy = read(block);
+        if (legacy == null || legacy.id() != FLOWER_POT)
+        {
+            return null;
+        }
+        final CompoundTag tag;
+        try
+        {
+            tag = readNbt(this.currentDir.resolve(nbt));
+        } catch (IOException e)
+        {
+            return null;
+        }
+        final String id = tag.getStringOr("id", "");
+        if (!id.equals("FlowerPot") && !id.equals("minecraft:flower_pot"))
+        {
+            return null;
+        }
+        this.report.converted++;
+        this.report.pots++;
+        // The plant: a name or (before 1.8) a number, with a data value
+        final String item = tag.getString("Item").orElseGet(() -> Integer.toString(tag.getIntOr("Item", 0)));
+        final Legacy plant = read(item + ":" + (tag.getIntOr("Data", 0) & 15));
+        if (plant != null && plant != Legacy.JUNK)
+        {
+            final BlockState state = this.legacy.state(plant.id(), Math.max(plant.data(), 0));
+            if (state != null)
+            {
+                final net.minecraft.resources.Identifier potted = net.minecraft.resources.Identifier.withDefaultNamespace(
+                        "potted_" + BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath());
+                if (BuiltInRegistries.BLOCK.containsKey(potted))
+                {
+                    return potted.toString();
+                }
+            }
+        }
+        return "minecraft:flower_pot";
+    }
+
+    private static CompoundTag readNbt(final Path file) throws IOException
+    {
+        final byte[] raw = Files.readAllBytes(file);
+        final boolean compressed = raw.length > 1 && (raw[0] & 0xFF) == 0x1F && (raw[1] & 0xFF) == 0x8B;
+        return compressed
+                ? NbtIo.readCompressed(new ByteArrayInputStream(raw), NbtAccounter.unlimitedHeap())
+                : NbtIo.read(new DataInputStream(new ByteArrayInputStream(raw)));
+    }
+
+    /**
+     * The data version to upgrade the custom objects' block entities from: Minecraft's first data schema (1.9's snapshots). Almura's
+     * files are older than 1.12 (chests named "Chest", items by number), and the data fixer takes them from there; newer data passes
+     * through the older fixes unchanged.
+     */
+    static final int BLOCK_ENTITY_DATA_VERSION = 99;
+
+    /**
+     * Upgrades a custom object's block entity (a chest with its items, a spawner, a sign) to 26.3, as Minecraft upgrades an old
+     * world's.
+     *
+     * @param tag The old block entity, with its id.
+     * @return The 26.3 block entity.
+     */
+    static CompoundTag upgradeBlockEntity(final CompoundTag tag)
+    {
+        final Dynamic<Tag> upgraded = DataFixers.getDataFixer().update(References.BLOCK_ENTITY, new Dynamic<>(NbtOps.INSTANCE, tag),
+                BLOCK_ENTITY_DATA_VERSION, SharedConstants.getCurrentVersion().dataVersion().version());
+        return (CompoundTag) upgraded.getValue();
+    }
+
+    private void nbtFile(final String name, final Path file, final Path target) throws IOException
+    {
+        final CompoundTag tag = readNbt(file);
+        final String id = tag.getStringOr("id", "");
+        if (id.equals("FlowerPot") || id.equals("minecraft:flower_pot"))
+        {
+            // A pot's plant is in its block since 1.13 (see potted): the objects no longer name this file
+            return;
+        }
+        try
+        {
+            // Written compressed, as TerrainControl reads first
+            NbtIo.writeCompressed(upgradeBlockEntity(tag), target);
+            this.report.nbtFiles++;
+        } catch (RuntimeException e)
+        {
+            this.report.fail(name + ": block entity not upgraded, copied as it was (" + e.getMessage() + ")");
+            Files.copy(file, target);
+        }
+    }
+
     // ----- Files -----
 
     /**
@@ -633,6 +780,11 @@ final class ConfigConverter
             {
                 final Path target = to.resolve(from.relativize(file).toString());
                 Files.createDirectories(target.getParent());
+                if (file.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".nbt"))
+                {
+                    nbtFile(from.relativize(file).toString(), file, target);
+                    continue;
+                }
                 if (!isConfig(file.getFileName().toString()))
                 {
                     Files.copy(file, target);
@@ -641,6 +793,7 @@ final class ConfigConverter
                 this.report.files++;
                 // Latin-1 reads and writes any bytes as they are; the blocks are plain ASCII
                 final String text = Files.readString(file, StandardCharsets.ISO_8859_1);
+                this.currentDir = file.getParent();
                 final String converted = file(from.relativize(file).toString(), text,
                         file.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".bo2"));
                 if (!converted.equals(text))

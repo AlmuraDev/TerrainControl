@@ -118,6 +118,27 @@ final class ConfigConverterTest
     }
 
     @Test
+    void blockEntitiesBecome26_3s() throws Exception
+    {
+        // Almura's Chests/Common1.nbt: a chest named as before 1.11, its items by number as before 1.8
+        final net.minecraft.nbt.CompoundTag chest = net.minecraft.nbt.TagParser.parseCompoundFully(
+                "{id:\"Chest\",Items:[{Slot:0b,id:297s,Count:3b,Damage:0s},{Slot:5b,id:266s,Count:1b,Damage:0s}]}");
+        final net.minecraft.nbt.CompoundTag upgraded = ConfigConverter.upgradeBlockEntity(chest);
+        System.out.println("Chest upgraded: " + upgraded);
+        assertEquals("minecraft:chest", upgraded.getStringOr("id", ""));
+        final net.minecraft.nbt.CompoundTag bread = upgraded.getListOrEmpty("Items").getCompoundOrEmpty(0);
+        assertEquals("minecraft:bread", bread.getStringOr("id", ""));
+        assertEquals(3, bread.getIntOr("count", 0));
+
+        // Spawner/CaveSpider.nbt: a spawner naming its mob as before 1.9
+        final net.minecraft.nbt.CompoundTag spawner = ConfigConverter.upgradeBlockEntity(net.minecraft.nbt.TagParser.parseCompoundFully(
+                "{id:\"MobSpawner\",EntityId:\"Spider\",Delay:0s,MinSpawnDelay:200s,MaxSpawnDelay:800s,SpawnCount:4s}"));
+        System.out.println("Spawner upgraded: " + spawner);
+        assertEquals("minecraft:mob_spawner", spawner.getStringOr("id", ""));
+        assertEquals("minecraft:spider", spawner.getCompoundOrEmpty("SpawnData").getCompoundOrEmpty("entity").getStringOr("id", ""));
+    }
+
+    @Test
     void commentsAndLineBreaksStay()
     {
         final ConfigConverter converter = new ConfigConverter();
