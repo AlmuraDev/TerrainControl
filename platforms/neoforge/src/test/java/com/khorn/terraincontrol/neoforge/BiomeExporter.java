@@ -39,6 +39,8 @@ final class BiomeExporter
     private static final Map<String, String> RENAMED_MOBS = Map.of("snowman", "snow_golem", "zombie_pigman", "zombified_piglin");
 
     int biomes;
+    /** Every biome written, for the overworld tag */
+    final java.util.List<String> written = new java.util.ArrayList<>();
     final Map<String, Integer> skippedMobs = new HashMap<>();
 
     /**
@@ -70,7 +72,28 @@ final class BiomeExporter
             Files.writeString(file, new GsonBuilder().setPrettyPrinting().create().toJson(json(biome.getBiomeConfig())) + "\n",
                     StandardCharsets.UTF_8);
             this.biomes++;
+            this.written.add(key.identifier().toString());
         }
+    }
+
+    /**
+     * Writes the overworld's biome tag with the biomes written: TerrainControl's biomes are overworld biomes, so the mods that add to
+     * the overworld's biomes (Almura's fruit trees, grass and ores, by NeoForge biome modifiers on #minecraft:is_overworld) add to
+     * them too.
+     *
+     * @param datapack The datapack's folder.
+     * @throws IOException When writing fails.
+     */
+    void writeOverworldTag(final Path datapack) throws IOException
+    {
+        final JsonObject tag = new JsonObject();
+        tag.addProperty("replace", false);
+        final JsonArray values = new JsonArray();
+        this.written.stream().sorted().forEach(values::add);
+        tag.add("values", values);
+        final Path file = datapack.resolve("data/minecraft/tags/worldgen/biome/is_overworld.json");
+        Files.createDirectories(file.getParent());
+        Files.writeString(file, new GsonBuilder().setPrettyPrinting().create().toJson(tag) + "\n", StandardCharsets.UTF_8);
     }
 
     private static String color(final int rgb)

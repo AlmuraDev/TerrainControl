@@ -17,6 +17,10 @@ import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.biome.Climate;
 import net.minecraft.world.level.levelgen.GenerationStep;
+import net.minecraft.core.HolderSet;
+import net.minecraft.world.level.chunk.LevelChunkSection;
+import net.minecraft.world.level.levelgen.placement.FeaturePlacer;
+import net.minecraft.world.level.levelgen.placement.PlacedFeature;
 import net.minecraft.world.level.levelgen.LegacyRandomSource;
 import net.minecraft.world.level.levelgen.RandomSupport;
 import net.minecraft.world.level.levelgen.WorldgenRandom;
@@ -50,6 +54,8 @@ import net.minecraft.world.level.levelgen.structure.StructureSet;
 import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.TreeMap;
 import java.util.Collections;
 import java.util.stream.Collectors;
 import java.util.EnumSet;
@@ -289,6 +295,56 @@ public final class TCChunkGenerator extends ChunkGenerator
         {
             world.lock().unlock();
         }
+        // Then what other mods add to the biomes (Almura's fruit trees, grass and ores), as they generated after TerrainControl's
+        // population on 1.12
+        placeModFeatures(level, chunk);
+    }
+
+    /**
+     * Places the features other mods add to the chunk's biomes (by NeoForge biome modifiers), as 26.3's features step places a
+     * biome's features: 26.3's own (the minecraft namespace) are left out, as TerrainControl's population places its worlds' trees,
+     * ores and plants itself.
+     */
+    private void placeModFeatures(final WorldGenLevel level, final ChunkAccess chunk)
+    {
+        final ChunkPos centerPos = chunk.getPos();
+        final SectionPos sectionPos = SectionPos.of(centerPos, level.getMinSectionY());
+        final BlockPos origin = sectionPos.origin();
+        // The biomes around, as 26.3 gathers them: their features check their biome where they place
+        final Set<Holder<Biome>> biomes = new LinkedHashSet<>();
+        ChunkPos.rangeClosed(centerPos, 1).forEach(pos -> {
+            for (final LevelChunkSection section : level.getChunk(pos.x(), pos.z()).getSections())
+            {
+                section.getBiomes().getAll(biomes::add);
+            }
+        });
+        final WorldgenRandom random = new WorldgenRandom(new XoroshiroRandomSource(RandomSupport.generateUniqueSeed()));
+        final long decorationSeed = random.setDecorationSeed(level.getSeed(), origin.getX(), origin.getZ());
+        final FeaturePlacer placer = new FeaturePlacer(level, this);
+        for (int step = 0; step < GenerationStep.Decoration.values().length; step++)
+        {
+            final Map<String, PlacedFeature> features = new TreeMap<>();
+            for (final Holder<Biome> biome : biomes)
+            {
+                final List<HolderSet<PlacedFeature>> steps = getBiomeGenerationSettings(biome).features();
+                if (step < steps.size())
+                {
+                    for (final Holder<PlacedFeature> feature : steps.get(step))
+                    {
+                        feature.unwrapKey().filter(key -> !key.identifier().getNamespace().equals("minecraft"))
+                                .ifPresent(key -> features.put(key.identifier().toString(), feature.value()));
+                    }
+                }
+            }
+            int index = 0;
+            for (final Map.Entry<String, PlacedFeature> feature : features.entrySet())
+            {
+                random.setFeatureSeed(decorationSeed, index++, step);
+                level.setCurrentlyGenerating(feature::getKey);
+                placer.placeWithBiomeCheck(feature.getValue(), random, origin);
+            }
+        }
+        level.setCurrentlyGenerating(null);
     }
 
     @Override
