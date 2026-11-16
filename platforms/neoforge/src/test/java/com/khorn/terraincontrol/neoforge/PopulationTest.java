@@ -40,7 +40,7 @@ final class PopulationTest
     }
 
     /** Chunks of TerrainControl's terrain, made when first asked for */
-    private static final class TerrainLevel implements PopulationLevel
+    private static class TerrainLevel implements PopulationLevel
     {
         final NeoForgeWorld world;
         final Map<Long, BlockState[]> chunks = new HashMap<>();
@@ -211,6 +211,68 @@ final class PopulationTest
         level.tooFar.stream().limit(5).forEach(System.out::println);
         assertTrue(level.tooFar.isEmpty(), level.tooFar.size() + " reads or writes further than a chunk from the chunk decorated");
         return level;
+    }
+
+    /**
+     * Which objects population spawns around a spot: {@code -Dtc.objectsAt=<world>,<x>,<z>,<seed>} (with -PobjectsAt=...), for finding
+     * where something seen in a world comes from.
+     */
+    @Test
+    void objectsAt()
+    {
+        final String spec = System.getProperty("tc.objectsAt", "");
+        assumeTrue(!spec.isEmpty() && TestEngine.configs() != null, "No -PobjectsAt");
+        final String[] parts = spec.split(",");
+        final String name = parts[0];
+        final int x = Integer.parseInt(parts[1]);
+        final int z = Integer.parseInt(parts[2]);
+        final long seed = Long.parseLong(parts[3]);
+        final NeoForgeWorld world = new NeoForgeWorld(name, TestEngine.configs().resolve("worlds").resolve(name).toFile(),
+                VanillaRegistries.createWorldLookup().lookupOrThrow(Registries.BIOME));
+        world.initialize(seed);
+        System.out.println(name + " at " + x + ", " + z + ": biome " + world.getCalculatedBiome(x, z).getName());
+        final java.util.List<String> spawned = new java.util.ArrayList<>();
+        com.khorn.terraincontrol.TerrainControl.registerEventHandler(new com.khorn.terraincontrol.events.EventHandler()
+        {
+            @Override
+            public boolean canCustomObjectSpawn(final com.khorn.terraincontrol.customobjects.CustomObject object,
+                    final com.khorn.terraincontrol.LocalWorld localWorld, final int ox, final int oy, final int oz, final boolean isCancelled)
+            {
+                if (localWorld == world && Math.abs(ox - x) <= 32 && Math.abs(oz - z) <= 32)
+                {
+                    spawned.add(object.getName() + " at " + ox + ", " + oy + ", " + oz + " in " + world.getCalculatedBiome(ox, oz).getName());
+                }
+                return true;
+            }
+        });
+        // A level of TerrainControl's terrain around the spot, populated as 26.3 would
+        final int chunkX = x >> 4;
+        final int chunkZ = z >> 4;
+        final TerrainLevel level = new TerrainLevel(world, 1)
+        {
+            @Override
+            boolean near(final int bx, final int bz)
+            {
+                return Math.abs((bx >> 4) - chunkX) <= 4 && Math.abs((bz >> 4) - chunkZ) <= 4;
+            }
+        };
+        world.lock().lock();
+        try
+        {
+            for (int cx = chunkX - 2; cx <= chunkX + 2; cx++)
+            {
+                for (int cz = chunkZ - 2; cz <= chunkZ + 2; cz++)
+                {
+                    level.decoratingX = cx;
+                    level.decoratingZ = cz;
+                    world.populate(level, new ChunkPos(cx, cz));
+                }
+            }
+        } finally
+        {
+            world.lock().unlock();
+        }
+        spawned.forEach(System.out::println);
     }
 
     /** A birch sapling in Atlantis's TemperateHills grows its Sapling(Birch...) tree, in a live level (no chunk limit) */

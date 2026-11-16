@@ -55,9 +55,11 @@ tasks.named('test', Test) {
     }
     // The biome exporter (BiomeExportTest): -PbiomesTo=<datapack folder>
     systemProperty('tc.biomes.to', (project.findProperty('biomesTo') ?: '').toString())
+    // Which objects population spawns around a spot (PopulationTest.objectsAt): -PobjectsAt=<world>,<x>,<z>,<seed>
+    systemProperty('tc.objectsAt', (project.findProperty('objectsAt') ?: '').toString())
     // And the converter's check of converted configs: -PconvertCheck=<folder>
     systemProperty('tc.convert.check', (project.findProperty('convertCheck') ?: '').toString())
-    if (project.hasProperty('convertFrom') || project.hasProperty('convertCheck') || project.hasProperty('biomesTo')) {
+    if (project.hasProperty('convertFrom') || project.hasProperty('convertCheck') || project.hasProperty('biomesTo') || project.hasProperty('objectsAt')) {
         outputs.upToDateWhen { false }
         testLogging.showStandardStreams = true
     }
