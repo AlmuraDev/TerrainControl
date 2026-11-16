@@ -200,20 +200,24 @@ public final class NeoForgeWorld implements LocalWorld
     @Override
     public LocalBiome createBiomeFor(final BiomeConfig biomeConfig, final BiomeIds biomeIds)
     {
-        final Holder<Biome> saved;
-        if (DefaultBiome.getBiome(biomeIds.getSavedId()) != null)
+        final boolean custom = DefaultBiome.getBiome(biomeIds.getGenerationId()) == null;
+        Holder<Biome> saved = null;
+        if (custom)
         {
-            saved = vanillaBiome(biomeIds.getSavedId());
-        } else
-        {
-            // A custom biome saved as itself needs a 26.3 biome of its own: these come with the biome registry entries, until then
-            // its chunks are saved as plains
-            warnOnce("biome:" + biomeConfig.getName(), "Biome \"{}\" of world \"{}\" has no 26.3 biome yet; its chunks are saved as plains",
-                    biomeConfig.getName(), this.name);
-            saved = vanillaBiome(DefaultBiome.PLAINS.Id);
+            // Its own 26.3 biome, from the biome exporter's datapack
+            final ResourceKey<Biome> key = NeoForgeBiome.registryKey(this.name, biomeConfig.getName());
+            saved = this.biomes.get(key).map(holder -> (Holder<Biome>) holder).orElse(null);
+            if (saved == null)
+            {
+                warnOnce("biome", "World \"{}\" has custom biomes without a 26.3 biome (such as {}): export the biomes to the server's"
+                        + " datapack. Until then they are saved as the vanilla biome they replace to, or plains", this.name, key.identifier());
+            }
         }
-        final NeoForgeBiome biome = new NeoForgeBiome(biomeConfig, biomeIds, DefaultBiome.getBiome(biomeIds.getGenerationId()) == null,
-                saved);
+        if (saved == null)
+        {
+            saved = vanillaBiome(DefaultBiome.getBiome(biomeIds.getSavedId()) != null ? biomeIds.getSavedId() : DefaultBiome.PLAINS.Id);
+        }
+        final NeoForgeBiome biome = new NeoForgeBiome(biomeConfig, biomeIds, custom, saved);
         this.biomeNames.put(biome.getName(), biome);
         return biome;
     }
