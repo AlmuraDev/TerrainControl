@@ -195,4 +195,30 @@ final class WorldGenerationTest
         System.out.println("Keystone 1024 high: highest surface y " + highest);
         assertTrue(highest > 256 && highest < 1024, "highest surface " + highest);
     }
+
+    /** Glacier, made 1024 high by its elevation tool: Logan Pass (2,026 m, block 0, 0) stands on y 512 */
+    @Test
+    void glacierStandsAtItsElevations()
+    {
+        final NeoForgeWorld world = load("Glacier");
+        assertEquals(1024, world.getHeightCap());
+        final Buffer buffer = new Buffer(0, 0);
+        world.getTerrainGenerator().generate(buffer);
+        final int loganPass = buffer.surface(3, 3);
+        System.out.println("Glacier: Logan Pass surface y " + loganPass + ", biome " + world.getCalculatedBiome(3, 3).getName());
+        assertTrue(Math.abs(loganPass - 512) <= 8, "Logan Pass at y " + loganPass);
+    }
+
+    /** Yellowstone, 1024 high at true scale (5 m a block both ways): Old Faithful (block 0, 0) stands on y 192 */
+    @Test
+    void yellowstoneStandsAtItsElevations()
+    {
+        final NeoForgeWorld world = load("Yellowstone");
+        assertEquals(1024, world.getHeightCap());
+        final Buffer buffer = new Buffer(0, 0);
+        world.getTerrainGenerator().generate(buffer);
+        final int oldFaithful = buffer.surface(0, 0);
+        System.out.println("Yellowstone: Old Faithful surface y " + oldFaithful + ", biome " + world.getCalculatedBiome(0, 0).getName());
+        assertTrue(Math.abs(oldFaithful - 192) <= 8, "Old Faithful at y " + oldFaithful);
+    }
 }
