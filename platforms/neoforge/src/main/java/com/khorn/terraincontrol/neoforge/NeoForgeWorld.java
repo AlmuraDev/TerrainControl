@@ -240,6 +240,24 @@ public final class NeoForgeWorld implements LocalWorld
     }
 
     /**
+     * Gets the highest MineshaftRarity of this world's biomes that have mineshafts: how often a chunk may roll for one.
+     *
+     * @return The rarity, a percent; 0 when no biome has mineshafts.
+     */
+    public double getMaxMineshaftRarity()
+    {
+        double max = 0;
+        for (final LocalBiome biome : this.settings.getBiomeArray())
+        {
+            if (biome != null && biome.getBiomeConfig().mineshaftType != BiomeConfig.MineshaftType.disabled)
+            {
+                max = Math.max(max, biome.getBiomeConfig().mineshaftsRarity);
+            }
+        }
+        return max;
+    }
+
+    /**
      * Gets the config of a 26.3 biome this world saves chunks as.
      *
      * @param biome The biome.

@@ -6,7 +6,15 @@ import com.khorn.terraincontrol.neoforge.NeoForgeWorld;
 import net.minecraft.core.Holder;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.levelgen.LegacyRandomSource;
+import net.minecraft.world.level.levelgen.WorldgenRandom;
 import net.minecraft.world.level.levelgen.structure.Structure;
+import net.minecraft.world.level.levelgen.structure.StructureSet;
+import net.minecraft.world.level.levelgen.structure.placement.ConcentricRingsStructurePlacement;
+import net.minecraft.world.level.levelgen.structure.placement.RandomSpreadStructurePlacement;
+import net.minecraft.world.level.levelgen.structure.placement.RandomSpreadType;
+import net.minecraft.world.level.levelgen.structure.placement.StructurePlacement;
 
 /**
  * Which of 26.3's structures a TerrainControl world has, as 1.12's TerrainControl decided it.
@@ -14,8 +22,11 @@ import net.minecraft.world.level.levelgen.structure.Structure;
  * <p>A world has 1.12's structures only (villages, mineshafts, strongholds, temples, swamp huts, igloos, ocean monuments, mansions,
  * nether fortresses), each as its WorldConfig enables them; 26.3's newer ones (trial chambers, ruined portals...) do not come into
  * TerrainControl's worlds. Where one may start is the biome config's say (VillageType, MineshaftType, RareBuildingType), not 26.3's
- * biome tags, which TerrainControl's own biomes are not in; strongholds may start in any biome; ocean monuments, mansions and
- * fortresses follow 26.3's biome tags, as 1.12 followed its vanilla biomes for them.</p>
+ * biome tags, which TerrainControl's own biomes are not in (strongholds where StrongholdsEnabled, mineshafts by MineshaftRarity);
+ * ocean monuments, mansions and fortresses follow 26.3's biome tags, as 1.12 followed its vanilla biomes for them.</p>
+ *
+ * <p>How far apart they are is the WorldConfig's (VillageDistance, Minimum/MaximumDistanceBetweenRareBuildings and ...Mansions,
+ * OceanMonumentGridSize and RandomOffset, StrongholdDistance, Count and Spread), spaced as 1.12 spaced them: {@link #spaced}.</p>
  */
 public final class TCStructures
 {
@@ -75,10 +86,96 @@ public final class TCStructures
             case "igloo" -> config.rareBuildingType == BiomeConfig.RareBuildingType.igloo;
             case "mineshaft" -> config.mineshaftType == BiomeConfig.MineshaftType.normal;
             case "mineshaft_mesa" -> config.mineshaftType == BiomeConfig.MineshaftType.mesa;
-            case "stronghold" -> true;
+            case "stronghold" -> config.strongholdsEnabled;
             case "monument", "mansion", "fortress" -> structure.value().biomes().contains(biome);
             default -> false;
         };
+    }
+
+    /**
+     * Gets a structure set as a world spaces it: 26.3's placement, with the world's spacing from its WorldConfig. 1.12 spread its
+     * structures as 26.3 does (a grid, a least separation, a random offset), so the settings carry over as they are.
+     *
+     * @param world The world.
+     * @param set   26.3's structure set.
+     * @return The set as the world spaces it; the set itself when TerrainControl has no spacing for it.
+     */
+    public static Holder<StructureSet> spaced(final NeoForgeWorld world, final Holder<StructureSet> set)
+    {
+        final WorldConfig config = world.getConfigs().getWorldConfig();
+        final String name = set.value().structures().stream().findFirst()
+                .flatMap(entry -> entry.structure().unwrapKey()).map(TCStructures::name).orElse("");
+        final StructurePlacement placement = set.value().placement();
+        final StructurePlacement spaced;
+        if (placement instanceof final RandomSpreadStructurePlacement spread)
+        {
+            spaced = switch (name)
+            {
+                // 1.12: a grid of VillageDistance chunks, each village at least 8 in
+                case "village_plains", "village_desert", "village_taiga", "village_savanna", "village_snowy" ->
+                        spread(spread, config.villageDistance, 8, RandomSpreadType.LINEAR, spread.frequency());
+                // 1.12 took one off the minimum distance, as its own scattered features did
+                case "desert_pyramid", "jungle_pyramid", "swamp_hut", "igloo" -> spread(spread, config.maximumDistanceBetweenRareBuildings,
+                        config.minimumDistanceBetweenRareBuildings - 1, RandomSpreadType.LINEAR, spread.frequency());
+                case "mansion" -> spread(spread, config.maximumDistanceBetweenMansions, config.minimumDistanceBetweenMansions,
+                        RandomSpreadType.TRIANGULAR, spread.frequency());
+                // 1.12: (nextInt(offset + 1) + nextInt(offset + 1)) / 2 into a grid of GridSize, as 26.3's triangular spread with
+                // spacing - separation = offset + 1
+                case "monument" -> spread(spread, config.oceanMonumentGridSize,
+                        config.oceanMonumentGridSize - config.oceanMonumentRandomOffset - 1, RandomSpreadType.TRIANGULAR, spread.frequency());
+                // Every chunk may roll for one: as often as the world's most mineshaft-rich biome has them (MineshaftRarity is a
+                // percent a chunk); each biome then has its own share (see mineshaftRoll)
+                case "mineshaft", "mineshaft_mesa" -> spread(spread, spread.spacing(), spread.separation(), spread.spreadType(),
+                        (float) (world.getMaxMineshaftRarity() / 100.0));
+                default -> placement;
+            };
+        } else if (placement instanceof final ConcentricRingsStructurePlacement rings && name.equals("stronghold"))
+        {
+            spaced = new ConcentricRingsStructurePlacement(rings.locateOffset(), rings.frequencyReductionMethod(), rings.frequency(),
+                    rings.salt(), rings.exclusionZone(), Math.max(1, (int) Math.round(config.strongholdDistance)),
+                    Math.max(1, config.strongholdSpread), Math.max(1, config.strongholdCount), rings.preferredBiomes());
+        } else
+        {
+            spaced = placement;
+        }
+        return spaced == placement ? set : Holder.direct(new StructureSet(set.value().structures(), spaced));
+    }
+
+    private static RandomSpreadStructurePlacement spread(final RandomSpreadStructurePlacement vanilla, final int spacing,
+            final int separation, final RandomSpreadType type, final float frequency)
+    {
+        final int grid = Math.max(1, spacing);
+        return new RandomSpreadStructurePlacement(vanilla.locateOffset(), vanilla.frequencyReductionMethod(), frequency, vanilla.salt(),
+                vanilla.exclusionZone(), grid, Math.max(0, Math.min(grid - 1, separation)), type);
+    }
+
+    /**
+     * Gets whether a chunk's mineshaft may start in a biome: the chunk rolls once (the same each time), and a biome takes it when
+     * the roll is under its MineshaftRarity, as 1.12 did, out of the world's highest (which the placement already rolled for).
+     *
+     * @param world   The world.
+     * @param seed    The level's seed.
+     * @param chunk   The chunk.
+     * @param biome   The biome's config.
+     * @return Whether it may.
+     */
+    public static boolean mineshaftRoll(final NeoForgeWorld world, final long seed, final ChunkPos chunk, final BiomeConfig biome)
+    {
+        final WorldgenRandom random = new WorldgenRandom(new LegacyRandomSource(0L));
+        random.setLargeFeatureSeed(seed ^ 0x6D696E6573686166L, chunk.x(), chunk.z());
+        return random.nextDouble() * world.getMaxMineshaftRarity() < biome.mineshaftsRarity;
+    }
+
+    /**
+     * Gets whether a structure is one of the mineshafts.
+     *
+     * @param structure The structure.
+     * @return Whether it is.
+     */
+    public static boolean isMineshaft(final Holder<Structure> structure)
+    {
+        final String name = structure.unwrapKey().map(TCStructures::name).orElse("");
+        return name.equals("mineshaft") || name.equals("mineshaft_mesa");
     }
 
     private TCStructures()

@@ -90,8 +90,17 @@ final class StructureRulesTest
         assertTrue(TCStructures.inBiome(cemaria, structure("village_plains"), woodVillages));
         assertFalse(TCStructures.inBiome(cemaria, structure("village_desert"), woodVillages));
         assertFalse(TCStructures.inBiome(cemaria, structure("village_plains"), noVillages));
-        // Strongholds anywhere TerrainControl has a biome
-        assertTrue(TCStructures.inBiome(cemaria, structure("stronghold"), noVillages));
+        // Strongholds where the biome config says StrongholdsEnabled
+        final Holder<Biome> strongholds = savedBiomeWhere(cemaria, config -> config.strongholdsEnabled);
+        final Holder<Biome> noStrongholds = savedBiomeWhere(cemaria, config -> !config.strongholdsEnabled);
+        if (strongholds != null)
+        {
+            assertTrue(TCStructures.inBiome(cemaria, structure("stronghold"), strongholds));
+        }
+        if (noStrongholds != null)
+        {
+            assertFalse(TCStructures.inBiome(cemaria, structure("stronghold"), noStrongholds));
+        }
 
         final Holder<Biome> mesaMineshafts = savedBiomeWhere(cemaria, config -> config.mineshaftType == BiomeConfig.MineshaftType.mesa);
         if (mesaMineshafts != null)
@@ -99,6 +108,40 @@ final class StructureRulesTest
             assertTrue(TCStructures.inBiome(cemaria, structure("mineshaft_mesa"), mesaMineshafts));
             assertFalse(TCStructures.inBiome(cemaria, structure("mineshaft"), mesaMineshafts));
         }
+    }
+
+    private static net.minecraft.world.level.levelgen.structure.placement.StructurePlacement spacedPlacement(final NeoForgeWorld world,
+            final String set)
+    {
+        final Holder<net.minecraft.world.level.levelgen.structure.StructureSet> vanilla = REGISTRIES.lookupOrThrow(Registries.STRUCTURE_SET)
+                .getOrThrow(ResourceKey.create(Registries.STRUCTURE_SET, Identifier.withDefaultNamespace(set)));
+        return TCStructures.spaced(world, vanilla).value().placement();
+    }
+
+    @Test
+    void worldConfigsSpaceTheStructures()
+    {
+        final NeoForgeWorld cemaria = load("Cemaria");
+        final var config = cemaria.getConfigs().getWorldConfig();
+        final var villages = (net.minecraft.world.level.levelgen.structure.placement.RandomSpreadStructurePlacement)
+                spacedPlacement(cemaria, "villages");
+        System.out.println("Cemaria villages every " + villages.spacing() + " chunks, at least " + villages.separation() + " in (VillageDistance "
+                + config.villageDistance + ")");
+        assertTrue(villages.spacing() == config.villageDistance && villages.separation() == 8);
+
+        final var monuments = (net.minecraft.world.level.levelgen.structure.placement.RandomSpreadStructurePlacement)
+                spacedPlacement(cemaria, "ocean_monuments");
+        assertTrue(monuments.spacing() == config.oceanMonumentGridSize
+                && monuments.spacing() - monuments.separation() == config.oceanMonumentRandomOffset + 1);
+
+        final var strongholds = (net.minecraft.world.level.levelgen.structure.placement.ConcentricRingsStructurePlacement)
+                spacedPlacement(cemaria, "strongholds");
+        System.out.println("Cemaria strongholds: " + strongholds.count() + " in rings " + strongholds.distance() + " apart");
+        assertTrue(strongholds.count() == config.strongholdCount && strongholds.spread() == config.strongholdSpread);
+
+        final var mineshafts = (net.minecraft.world.level.levelgen.structure.placement.RandomSpreadStructurePlacement)
+                spacedPlacement(cemaria, "mineshafts");
+        assertTrue(mineshafts.frequency() == (float) (cemaria.getMaxMineshaftRarity() / 100.0));
     }
 
     @Test

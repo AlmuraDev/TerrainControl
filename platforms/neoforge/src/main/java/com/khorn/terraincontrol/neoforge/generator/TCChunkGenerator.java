@@ -141,7 +141,7 @@ public final class TCChunkGenerator extends ChunkGenerator
         final List<Holder<StructureSet>> sets = structureSets.listElements()
                 .filter(set -> set.value().structures().stream()
                         .anyMatch(entry -> entry.structure().unwrapKey().map(key -> TCStructures.inWorld(world, key)).orElse(false)))
-                .map(set -> (Holder<StructureSet>) set)
+                .map(set -> TCStructures.spaced(world, (Holder<StructureSet>) set))
                 .toList();
         return new ChunkGeneratorStructureState(randomState, this.source, legacyLevelSeed, getOrigin(randomState), legacyLevelSeed, sets);
     }
@@ -229,7 +229,8 @@ public final class TCChunkGenerator extends ChunkGenerator
                     final StructureStart start = structure.generate(selected.structure(), level, registryAccess, this, this.source,
                             climateSampler, state.randomState(), structureTemplateManager, state.getLevelSeed(), sourceChunkPos,
                             previous != null ? previous.getReferences() : 0, centerChunk,
-                            biome -> TCStructures.inBiome(world, selected.structure(), biome));
+                            biome -> TCStructures.inBiome(world, selected.structure(), biome) && (!TCStructures.isMineshaft(selected.structure())
+                                    || TCStructures.mineshaftRoll(world, state.getLevelSeed(), sourceChunkPos, world.getBiomeConfig(biome))));
                     if (start.isValid())
                     {
                         structureManager.setStartForStructure(structure, start, centerChunk);
