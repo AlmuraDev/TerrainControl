@@ -113,7 +113,7 @@ final class FixedObjectPlacer
             for (BO3PlaceableFunction block : entry.blocks)
             {
                 int bx = entry.x + block.x, bz = entry.z + block.z, by = entry.y + block.y;
-                if (bx < areaX0 || bx > areaX1 || bz < areaZ0 || bz > areaZ1 || by < 0 || by > 255)
+                if (bx < areaX0 || bx > areaX1 || bz < areaZ0 || bz > areaZ1 || by < TerrainControl.WORLD_DEPTH || by >= TerrainControl.WORLD_HEIGHT)
                     continue;
                 block.spawn(world, random, bx, by, bz);
             }

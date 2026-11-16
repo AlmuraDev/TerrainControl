@@ -23,7 +23,7 @@ public class BO3Settings extends Settings
     public static final Setting<Integer>
             FREQUENCY = intSetting("Frequency", 1, 1, 200),
             MIN_HEIGHT = intSetting("MinHeight", 0, WORLD_DEPTH, WORLD_HEIGHT),
-            MAX_HEIGHT = intSetting("MaxHeight", 256, WORLD_DEPTH, WORLD_HEIGHT),
+            MAX_HEIGHT = intSetting("MaxHeight", WORLD_HEIGHT, WORLD_DEPTH, WORLD_HEIGHT),
             MAX_BRANCH_DEPTH = intSetting("MaxBranchDepth", 10, 1, 100),
             MAX_PERCENTAGE_OUTSIDE_SOURCE_BLOCK = intSetting("MaxPercentageOutsideSourceBlock", 100, 0, 100),
             SPAWN_HEIGHT_OFFSET = intSetting("SpawnHeightOffset", 0, -255, 255),

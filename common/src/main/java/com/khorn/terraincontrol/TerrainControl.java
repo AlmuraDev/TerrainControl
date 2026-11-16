@@ -39,9 +39,11 @@ public class TerrainControl
 
     /**
      * The world height that the engine supports. Not the actual height the
-     * world is capped at. 256 in Minecraft.
+     * world is capped at (WorldHeightCapBits). 1024: TerrainControl's worlds
+     * on 26.3 are 1024 blocks high (the terraincontrol:tall dimension type);
+     * 256 on 1.12.
      */
-    public static final int WORLD_HEIGHT = 256;
+    public static final int WORLD_HEIGHT = 1024;
 
     public static final int MAX_BIOME_ID = 16384;
     /**

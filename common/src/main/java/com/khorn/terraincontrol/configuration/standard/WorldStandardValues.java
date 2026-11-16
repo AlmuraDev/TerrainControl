@@ -53,8 +53,8 @@ public class WorldStandardValues extends Settings
             DESCRIPTION = stringSetting("Description", "No description given");
 
     public static final Setting<Integer>
-            WORLD_HEIGHT_SCALE_BITS = intSetting("WorldHeightScaleBits", 7, 5, 8),
-            WORLD_HEIGHT_CAP_BITS = intSetting("WorldHeightCapBits", 8, 5, 8),
+            WORLD_HEIGHT_SCALE_BITS = intSetting("WorldHeightScaleBits", 7, 5, 10),
+            WORLD_HEIGHT_CAP_BITS = intSetting("WorldHeightCapBits", 8, 5, 10),
             GENERATION_DEPTH = intSetting("GenerationDepth", 10, 1, 20),
             BIOME_RARITY_SCALE = intSetting("BiomeRarityScale", 100, 1, Integer.MAX_VALUE),
             LAND_RARITY = intSetting("LandRarity", 99, 1, 100),

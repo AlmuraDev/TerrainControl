@@ -152,4 +152,47 @@ final class WorldGenerationTest
         System.out.println("Keystone at 8, 8: " + biome.getName() + ", saved as " + saved + "; saved biomes " + world.getSavedBiomes().size());
         assertEquals("minecraft", saved.getNamespace());
     }
+
+    /**
+     * A world 1024 high (WorldHeightCapBits and WorldHeightScaleBits 10, as Glacier and Yellowstone will be): Keystone so set
+     * generates its terrain 4 times as high.
+     */
+    @Test
+    void worldsGenerate1024High() throws Exception
+    {
+        assumeTrue(TestEngine.configs() != null, "No converted configs (ServerConfigs-26.3)");
+        final java.nio.file.Path from = TestEngine.configs().resolve("worlds").resolve("Keystone");
+        final java.nio.file.Path to = java.nio.file.Files.createTempDirectory("tc-tall").resolve("TallKeystone");
+        try (java.util.stream.Stream<java.nio.file.Path> files = java.nio.file.Files.walk(from))
+        {
+            for (final java.nio.file.Path file : (Iterable<java.nio.file.Path>) files::iterator)
+            {
+                java.nio.file.Files.copy(file, to.resolve(from.relativize(file).toString()));
+            }
+        }
+        final java.nio.file.Path ini = to.resolve("WorldConfig.ini");
+        java.nio.file.Files.writeString(ini, java.nio.file.Files.readString(ini, java.nio.charset.StandardCharsets.ISO_8859_1)
+                .replace("WorldHeightScaleBits: 8", "WorldHeightScaleBits: 10")
+                .replace("WorldHeightCapBits: 8", "WorldHeightCapBits: 10"), java.nio.charset.StandardCharsets.ISO_8859_1);
+
+        final NeoForgeWorld world = new NeoForgeWorld("TallKeystone", to.toFile(),
+                VanillaRegistries.createWorldLookup().lookupOrThrow(Registries.BIOME));
+        world.initialize(20261115L);
+        assertEquals(1024, world.getHeightCap());
+        int highest = 0;
+        for (int chunkX = -2; chunkX <= 2; chunkX++)
+        {
+            final Buffer buffer = new Buffer(chunkX, 0);
+            world.getTerrainGenerator().generate(buffer);
+            for (int x = 0; x < 16; x++)
+            {
+                for (int z = 0; z < 16; z++)
+                {
+                    highest = Math.max(highest, buffer.surface(x, z));
+                }
+            }
+        }
+        System.out.println("Keystone 1024 high: highest surface y " + highest);
+        assertTrue(highest > 256 && highest < 1024, "highest surface " + highest);
+    }
 }
