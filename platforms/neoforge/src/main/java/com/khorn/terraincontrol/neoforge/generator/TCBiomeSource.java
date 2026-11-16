@@ -93,6 +93,25 @@ public final class TCBiomeSource extends BiomeSource
     }
 
     /**
+     * Runs something for a level, so the biomes it asks this source for come from that level.
+     *
+     * @param randomState The level's RandomState.
+     * @param task        What to run.
+     */
+    void forLevel(final RandomState randomState, final Runnable task)
+    {
+        final RandomState before = SEARCHING.get();
+        SEARCHING.set(randomState);
+        try
+        {
+            task.run();
+        } finally
+        {
+            SEARCHING.set(before);
+        }
+    }
+
+    /**
      * Gets a level's biomes.
      *
      * @param randomState The level's RandomState.

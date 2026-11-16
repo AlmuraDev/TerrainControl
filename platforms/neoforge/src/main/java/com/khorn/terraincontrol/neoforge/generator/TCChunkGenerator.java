@@ -9,6 +9,23 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderGetter;
 import net.minecraft.core.HolderLookup;
+import net.minecraft.core.Registry;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.SectionPos;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.biome.Climate;
+import net.minecraft.world.level.levelgen.GenerationStep;
+import net.minecraft.world.level.levelgen.LegacyRandomSource;
+import net.minecraft.world.level.levelgen.RandomSupport;
+import net.minecraft.world.level.levelgen.WorldgenRandom;
+import net.minecraft.world.level.levelgen.XoroshiroRandomSource;
+import net.minecraft.world.level.levelgen.structure.BoundingBox;
+import net.minecraft.world.level.levelgen.structure.Structure;
+import net.minecraft.world.level.levelgen.structure.StructureStart;
+import net.minecraft.world.level.levelgen.structure.placement.StructurePlacement;
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplateManager;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.RegistryOps;
 import net.minecraft.server.level.WorldGenRegion;
@@ -32,7 +49,9 @@ import net.minecraft.world.level.levelgen.densityfunction.SamplerContext;
 import net.minecraft.world.level.levelgen.structure.StructureSet;
 import org.jspecify.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.stream.Collectors;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
@@ -117,7 +136,14 @@ public final class TCChunkGenerator extends ChunkGenerator
         world.initialize(legacyLevelSeed);
         this.levels.put(randomState, world);
         this.source.bind(randomState, world);
-        return super.createState(structureSets, randomState, legacyLevelSeed);
+        // The structure sets with a structure this world has (26.3's own states would drop those none of whose biomes are in 26.3's
+        // biome tags, as TerrainControl's own biomes are not)
+        final List<Holder<StructureSet>> sets = structureSets.listElements()
+                .filter(set -> set.value().structures().stream()
+                        .anyMatch(entry -> entry.structure().unwrapKey().map(key -> TCStructures.inWorld(world, key)).orElse(false)))
+                .map(set -> (Holder<StructureSet>) set)
+                .toList();
+        return new ChunkGeneratorStructureState(randomState, this.source, legacyLevelSeed, getOrigin(randomState), legacyLevelSeed, sets);
     }
 
     @Override
@@ -151,9 +177,108 @@ public final class TCChunkGenerator extends ChunkGenerator
     }
 
     @Override
+    public void createStructures(final RegistryAccess registryAccess, final ChunkGeneratorStructureState state,
+            final StructureManager structureManager, final ChunkAccess centerChunk, final StructureTemplateManager structureTemplateManager,
+            final ResourceKey<Level> level)
+    {
+        // As 26.3 does, but asking TerrainControl's biome configs where a structure may start
+        final NeoForgeWorld world = world(state.randomState());
+        final ChunkPos sourceChunkPos = centerChunk.getPos();
+        this.source.forLevel(state.randomState(), () -> {
+            final Climate.Sampler climateSampler = state.randomState().createClimateSampler(SamplerContext.builder().enableCaches().build());
+            for (final Holder<StructureSet> set : state.possibleStructureSets())
+            {
+                final StructurePlacement placement = set.value().placement();
+                final List<StructureSet.StructureSelectionEntry> structures = set.value().structures();
+                boolean started = false;
+                for (final StructureSet.StructureSelectionEntry structure : structures)
+                {
+                    final StructureStart existing = structureManager.getStartForStructure(structure.structure().value(), centerChunk);
+                    if (existing != null && existing.isValid())
+                    {
+                        started = true;
+                        break;
+                    }
+                }
+                if (started || !placement.isStructureChunk(state, sourceChunkPos.x(), sourceChunkPos.z()))
+                {
+                    continue;
+                }
+                final List<StructureSet.StructureSelectionEntry> options = new ArrayList<>(structures);
+                options.removeIf(option -> !option.structure().unwrapKey().map(key -> TCStructures.inWorld(world, key)).orElse(false));
+                final WorldgenRandom random = new WorldgenRandom(new LegacyRandomSource(0L));
+                random.setLargeFeatureSeed(state.getLevelSeed(), sourceChunkPos.x(), sourceChunkPos.z());
+                int total = options.stream().mapToInt(StructureSet.StructureSelectionEntry::weight).sum();
+                while (!options.isEmpty())
+                {
+                    int choice = options.size() == 1 ? 0 : random.nextInt(total);
+                    int index = 0;
+                    for (final StructureSet.StructureSelectionEntry option : options)
+                    {
+                        choice -= option.weight();
+                        if (choice < 0)
+                        {
+                            break;
+                        }
+                        index++;
+                    }
+                    index = Math.min(index, options.size() - 1);
+                    final StructureSet.StructureSelectionEntry selected = options.get(index);
+                    final Structure structure = selected.structure().value();
+                    final StructureStart previous = structureManager.getStartForStructure(structure, centerChunk);
+                    final StructureStart start = structure.generate(selected.structure(), level, registryAccess, this, this.source,
+                            climateSampler, state.randomState(), structureTemplateManager, state.getLevelSeed(), sourceChunkPos,
+                            previous != null ? previous.getReferences() : 0, centerChunk,
+                            biome -> TCStructures.inBiome(world, selected.structure(), biome));
+                    if (start.isValid())
+                    {
+                        structureManager.setStartForStructure(structure, start, centerChunk);
+                        break;
+                    }
+                    options.remove(index);
+                    total -= selected.weight();
+                }
+            }
+        });
+    }
+
+    /**
+     * Places the pieces of the structures that reach into a chunk, as 26.3's features step does, without 26.3's features.
+     */
+    private void placeStructures(final WorldGenLevel level, final ChunkAccess chunk, final StructureManager structureManager)
+    {
+        if (!structureManager.shouldGenerateStructures())
+        {
+            return;
+        }
+        final ChunkPos centerPos = chunk.getPos();
+        final SectionPos sectionPos = SectionPos.of(centerPos, level.getMinSectionY());
+        final BlockPos origin = sectionPos.origin();
+        final Registry<Structure> structures = level.registryAccess().lookupOrThrow(Registries.STRUCTURE);
+        final Map<Integer, List<Structure>> byStep = structures.stream().collect(Collectors.groupingBy(structure -> structure.step().ordinal()));
+        final WorldgenRandom random = new WorldgenRandom(new XoroshiroRandomSource(RandomSupport.generateUniqueSeed()));
+        final long decorationSeed = random.setDecorationSeed(level.getSeed(), origin.getX(), origin.getZ());
+        final LevelHeightAccessor heights = chunk.getHeightAccessorForGeneration();
+        final BoundingBox writable = new BoundingBox(centerPos.getMinBlockX(), heights.getMinY() + 1, centerPos.getMinBlockZ(),
+                centerPos.getMinBlockX() + 15, heights.getMaxY(), centerPos.getMinBlockZ() + 15);
+        for (int step = 0; step < GenerationStep.Decoration.values().length; step++)
+        {
+            int index = 0;
+            for (final Structure structure : byStep.getOrDefault(step, List.of()))
+            {
+                random.setFeatureSeed(decorationSeed, index, step);
+                structureManager.startsForStructure(sectionPos.x(), sectionPos.z(), structure)
+                        .forEach(start -> start.placeInChunk(level, structureManager, this, random, writable, centerPos));
+                index++;
+            }
+        }
+    }
+
+    @Override
     public void applyBiomeDecoration(final WorldGenLevel level, final ChunkAccess chunk, final StructureManager structureManager)
     {
-        // TerrainControl's population, instead of the features of the vanilla biomes the chunks are saved as
+        // 1.12's order: the structures, then TerrainControl's population (instead of the features of the biomes the chunks are saved as)
+        placeStructures(level, chunk, structureManager);
         final NeoForgeWorld world = world(level.getLevel().getChunkSource().randomState());
         world.lock().lock();
         try

@@ -71,6 +71,8 @@ public final class NeoForgeWorld implements LocalWorld
     private final HolderGetter<Biome> biomes;
     private final ServerConfigProvider settings;
     private final Map<String, LocalBiome> biomeNames = new ConcurrentHashMap<>();
+    /** The config of each 26.3 biome this world saves chunks as */
+    private final Map<ResourceKey<Biome>, BiomeConfig> savedConfigs = new ConcurrentHashMap<>();
     private final Set<String> warned = ConcurrentHashMap.newKeySet();
     private final ReentrantLock lock = new ReentrantLock();
     private int nextBiomeId = DefaultBiome.values().length;
@@ -223,8 +225,29 @@ public final class NeoForgeWorld implements LocalWorld
             saved = vanillaBiome(DefaultBiome.getBiome(biomeIds.getSavedId()) != null ? biomeIds.getSavedId() : DefaultBiome.PLAINS.Id);
         }
         final NeoForgeBiome biome = new NeoForgeBiome(biomeConfig, biomeIds, custom, saved);
+        // A vanilla biome is TerrainControl's config of it, before any custom biome saved as it for want of its own
+        saved.unwrapKey().ifPresent(key -> {
+            if (custom)
+            {
+                this.savedConfigs.putIfAbsent(key, biomeConfig);
+            } else
+            {
+                this.savedConfigs.put(key, biomeConfig);
+            }
+        });
         this.biomeNames.put(biome.getName(), biome);
         return biome;
+    }
+
+    /**
+     * Gets the config of a 26.3 biome this world saves chunks as.
+     *
+     * @param biome The biome.
+     * @return Its config; null when this world saves no chunks as it.
+     */
+    public BiomeConfig getBiomeConfig(final Holder<Biome> biome)
+    {
+        return biome.unwrapKey().map(this.savedConfigs::get).orElse(null);
     }
 
     @Override
