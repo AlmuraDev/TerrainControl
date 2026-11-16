@@ -359,10 +359,15 @@ public final class NeoForgeWorld implements LocalWorld
      * Where population is writing: the level of 26.3's features step, and the chunks TerrainControl may write to. As on 1.12, a
      * chunk's population covers the 2 by 2 chunks from it (8 blocks in, so objects can reach over), which 26.3 lets it write to.
      */
-    private record Population(PopulationLevel level, int chunkX, int chunkZ)
+    private record Population(PopulationLevel level, int chunkX, int chunkZ, boolean bounded)
     {
         boolean contains(final int x, final int z)
         {
+            if (!this.bounded)
+            {
+                // A live level: it keeps to its loaded chunks itself
+                return true;
+            }
             final int dx = (x >> 4) - this.chunkX;
             final int dz = (z >> 4) - this.chunkZ;
             return dx >= 0 && dx <= 1 && dz >= 0 && dz <= 1;
@@ -384,13 +389,36 @@ public final class NeoForgeWorld implements LocalWorld
         // (trees, dungeons) are kept within 26.3's reach by RegionPopulationLevel.
         final int chunkX = chunkPos.x();
         final int chunkZ = chunkPos.z();
-        this.population = new Population(level, chunkX, chunkZ);
+        this.population = new Population(level, chunkX, chunkZ, true);
         try
         {
             this.spawner.populate(ChunkCoordinate.fromChunkCoords(chunkX, chunkZ));
         } finally
         {
             this.population = null;
+        }
+    }
+
+    /**
+     * Lets TerrainControl place in a live level, as when a sapling grows into one of a biome's custom trees: what it places is not
+     * held to a chunk, only to the level's loaded chunks.
+     *
+     * @param level The level.
+     * @param task  What to place; whether it was placed.
+     * @return What the task returned.
+     */
+    public boolean placeLive(final PopulationLevel level, final java.util.function.BooleanSupplier task)
+    {
+        this.lock.lock();
+        final Population before = this.population;
+        this.population = new Population(level, 0, 0, false);
+        try
+        {
+            return task.getAsBoolean();
+        } finally
+        {
+            this.population = before;
+            this.lock.unlock();
         }
     }
 

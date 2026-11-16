@@ -1,6 +1,7 @@
 package com.khorn.terraincontrol.neoforge;
 
 import com.khorn.terraincontrol.TerrainControl;
+import com.khorn.terraincontrol.neoforge.generator.SaplingListener;
 import com.khorn.terraincontrol.neoforge.generator.TCBiomeSource;
 import com.khorn.terraincontrol.neoforge.generator.TCChunkGenerator;
 import com.mojang.serialization.MapCodec;
@@ -12,6 +13,7 @@ import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.fml.loading.FMLPaths;
+import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
 /**
@@ -42,6 +44,8 @@ public final class TerrainControlMod
         CHUNK_GENERATORS.register(modBus);
         BIOME_SOURCES.register(modBus);
         modBus.addListener(TerrainControlMod::onCommonSetup);
+        // Saplings grow into their biome's own trees
+        NeoForge.EVENT_BUS.addListener(SaplingListener::onGrow);
     }
 
     private static void onCommonSetup(final FMLCommonSetupEvent event)

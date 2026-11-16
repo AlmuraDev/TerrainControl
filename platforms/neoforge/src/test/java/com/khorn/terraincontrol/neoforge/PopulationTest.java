@@ -213,6 +213,27 @@ final class PopulationTest
         return level;
     }
 
+    /** A birch sapling in Atlantis's TemperateHills grows its Sapling(Birch...) tree, in a live level (no chunk limit) */
+    @Test
+    void saplingsGrowTheirBiomesTrees()
+    {
+        assumeTrue(TestEngine.configs() != null, "No converted configs (ServerConfigs-26.3)");
+        final NeoForgeWorld world = new NeoForgeWorld("Atlantis", TestEngine.configs().resolve("worlds/Atlantis").toFile(),
+                VanillaRegistries.createWorldLookup().lookupOrThrow(Registries.BIOME));
+        world.initialize(20261115L);
+        final com.khorn.terraincontrol.LocalBiome hills = world.getBiomeByName("TemperateHills");
+        assumeTrue(hills != null, "Atlantis has no TemperateHills");
+        final var gen = hills.getBiomeConfig().getSaplingGen(com.khorn.terraincontrol.generator.resource.SaplingType.Birch);
+        assertTrue(gen != null, "TemperateHills grows no birch saplings");
+
+        final TerrainLevel level = new TerrainLevel(world, 2);
+        final int y = level.getSurface(8, 8);
+        // A sapling's tree: TerrainControl's Forest tree (26.3's birch); in the test, 26.3's features are counted, not grown
+        final boolean grown = world.placeLive(level, () -> gen.growSapling(world, new java.util.Random(1), false, 8, y, 8));
+        System.out.println("Atlantis TemperateHills: birch sapling grown " + grown + ", features " + level.features);
+        assertTrue(grown && level.features.getOrDefault("birch", 0) == 1);
+    }
+
     @Test
     void keystonePopulates()
     {

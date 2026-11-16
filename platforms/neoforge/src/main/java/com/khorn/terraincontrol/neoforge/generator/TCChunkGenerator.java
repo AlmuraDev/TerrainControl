@@ -111,7 +111,7 @@ public final class TCChunkGenerator extends ChunkGenerator
      * @param randomState The level's RandomState.
      * @return Its TerrainControl world.
      */
-    private NeoForgeWorld world(final RandomState randomState)
+    NeoForgeWorld world(final RandomState randomState)
     {
         final NeoForgeWorld world = this.levels.get(randomState);
         if (world == null)
