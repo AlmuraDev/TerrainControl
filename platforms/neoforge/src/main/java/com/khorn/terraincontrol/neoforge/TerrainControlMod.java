@@ -46,6 +46,8 @@ public final class TerrainControlMod
         modBus.addListener(TerrainControlMod::onCommonSetup);
         // Saplings grow into their biome's own trees
         NeoForge.EVENT_BUS.addListener(SaplingListener::onGrow);
+        // /tc worldinfo, /tc biome, /tc print
+        NeoForge.EVENT_BUS.addListener(TCCommands::onRegisterCommands);
     }
 
     private static void onCommonSetup(final FMLCommonSetupEvent event)

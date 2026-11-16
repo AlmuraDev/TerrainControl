@@ -32,6 +32,7 @@ import net.minecraft.world.level.levelgen.structure.placement.StructurePlacement
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplateManager;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.RegistryOps;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.WorldGenRegion;
 import net.minecraft.util.Util;
 import net.minecraft.world.level.LevelHeightAccessor;
@@ -57,6 +58,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.TreeMap;
 import java.util.Collections;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.EnumSet;
 import java.util.List;
@@ -117,6 +119,21 @@ public final class TCChunkGenerator extends ChunkGenerator
      * @param randomState The level's RandomState.
      * @return Its TerrainControl world.
      */
+    /**
+     * Gets the TerrainControl world of a level, when TerrainControl generates it.
+     *
+     * @param level The level.
+     * @return Its TerrainControl world; empty for a level TerrainControl does not generate (or has not yet).
+     */
+    public static Optional<NeoForgeWorld> worldFor(final ServerLevel level)
+    {
+        if (level.getChunkSource().getGenerator() instanceof final TCChunkGenerator generator)
+        {
+            return Optional.ofNullable(generator.levels.get(level.getChunkSource().randomState()));
+        }
+        return Optional.empty();
+    }
+
     NeoForgeWorld world(final RandomState randomState)
     {
         final NeoForgeWorld world = this.levels.get(randomState);
