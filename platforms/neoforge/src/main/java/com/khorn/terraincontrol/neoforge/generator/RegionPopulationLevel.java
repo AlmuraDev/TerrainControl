@@ -6,7 +6,11 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.util.RandomSource;
+import net.minecraft.server.level.WorldGenRegion;
 import net.minecraft.world.level.WorldGenLevel;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.ChestBlock;
 import net.minecraft.world.level.block.CrossCollisionBlock;
@@ -20,6 +24,11 @@ import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.feature.Feature;
 import net.minecraft.world.level.material.Fluid;
+
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Proxy;
+import java.util.function.Predicate;
 
 /**
  * Population's level in the game: the level of 26.3's features step.
@@ -104,8 +113,57 @@ final class RegionPopulationLevel implements PopulationLevel
     @Override
     public boolean placeFeature(final ResourceKey<Feature> feature, final RandomSource random, final BlockPos pos)
     {
+        final WorldGenLevel guarded = guarded();
         return this.level.registryAccess().lookupOrThrow(Registries.FEATURE).get(feature)
-                .map(holder -> holder.value().place(this.level, this.generator, random, pos))
+                .map(holder -> holder.value().place(guarded, this.generator, random, pos))
                 .orElse(false);
+    }
+
+    /**
+     * Gets the level as 26.3's features may see it when TerrainControl plants them. 26.3 lets the features step reach one chunk around
+     * the chunk it decorates; TerrainControl plants trees and dungeons anywhere in the 2 by 2 chunks it populates (as 1.12 did), and a
+     * big tree near the edge reads and writes further than 26.3 allows. Beyond that reach the level reads as bedrock and takes no
+     * blocks, so such a tree does not grow there instead of reaching out of bounds.
+     *
+     * @return The guarded level; the level itself when it is no WorldGenRegion.
+     */
+    private WorldGenLevel guarded()
+    {
+        if (!(this.level instanceof final WorldGenRegion region))
+        {
+            return this.level;
+        }
+        final int centerX = region.getCenter().x();
+        final int centerZ = region.getCenter().z();
+        final BlockState outside = Blocks.BEDROCK.defaultBlockState();
+        final InvocationHandler handler = (proxy, method, args) -> {
+            if (args != null && args.length > 0 && args[0] instanceof final BlockPos pos
+                    && (Math.abs((pos.getX() >> 4) - centerX) > 1 || Math.abs((pos.getZ() >> 4) - centerZ) > 1))
+            {
+                switch (method.getName())
+                {
+                    case "getBlockState":
+                        return outside;
+                    case "getFluidState":
+                        return Fluids.EMPTY.defaultFluidState();
+                    case "isStateAtPosition":
+                        return ((Predicate<BlockState>) args[1]).test(outside);
+                    case "isFluidAtPosition":
+                        return ((Predicate<FluidState>) args[1]).test(Fluids.EMPTY.defaultFluidState());
+                    case "setBlock", "setBlockAndUpdate", "removeBlock", "destroyBlock", "ensureCanWrite":
+                        return false;
+                    default:
+                        break;
+                }
+            }
+            try
+            {
+                return method.invoke(region, args);
+            } catch (InvocationTargetException e)
+            {
+                throw e.getCause();
+            }
+        };
+        return (WorldGenLevel) Proxy.newProxyInstance(WorldGenLevel.class.getClassLoader(), new Class<?>[] {WorldGenLevel.class}, handler);
     }
 }

@@ -48,6 +48,17 @@ final class PopulationTest
         final Map<String, Integer> features = new TreeMap<>();
         int blockEntities;
         int flowing;
+        /** The chunk 26.3 is decorating, and how often population reached further than 26.3 lets it (a chunk around it) */
+        int decoratingX, decoratingZ;
+        final java.util.List<String> tooFar = new java.util.ArrayList<>();
+
+        void checkReach(final BlockPos pos, final String what)
+        {
+            if (Math.abs((pos.getX() >> 4) - this.decoratingX) > 1 || Math.abs((pos.getZ() >> 4) - this.decoratingZ) > 1)
+            {
+                this.tooFar.add(what + " " + pos + " while decorating chunk " + this.decoratingX + ", " + this.decoratingZ);
+            }
+        }
 
         final int size;
 
@@ -112,6 +123,7 @@ final class PopulationTest
         @Override
         public BlockState getBlockState(final BlockPos pos)
         {
+            checkReach(pos, "read");
             return pos.getY() < 0 || pos.getY() > 255 || !near(pos.getX(), pos.getZ()) ? Blocks.AIR.defaultBlockState()
                     : chunk(pos.getX(), pos.getZ())[pos.getY() * 256 + (pos.getZ() & 15) * 16 + (pos.getX() & 15)];
         }
@@ -119,6 +131,7 @@ final class PopulationTest
         @Override
         public void setBlock(final BlockPos pos, final BlockState state)
         {
+            checkReach(pos, "write");
             if (pos.getY() < 0 || pos.getY() > 255 || !near(pos.getX(), pos.getZ()))
             {
                 throw new IllegalStateException("Population wrote outside its chunks: " + pos);
@@ -160,6 +173,8 @@ final class PopulationTest
         @Override
         public boolean placeFeature(final ResourceKey<Feature> feature, final RandomSource random, final BlockPos pos)
         {
+            // Planted within reach (how far the feature itself reaches is RegionPopulationLevel's to guard)
+            checkReach(pos, "feature " + feature.identifier().getPath() + " at");
             // 26.3's features need a real level; counted only
             this.features.merge(feature.identifier().getPath(), 1, Integer::sum);
             return true;
@@ -182,6 +197,8 @@ final class PopulationTest
             {
                 for (int chunkZ = 0; chunkZ < size; chunkZ++)
                 {
+                    level.decoratingX = chunkX;
+                    level.decoratingZ = chunkZ;
                     world.populate(level, new ChunkPos(chunkX, chunkZ));
                 }
             }
@@ -191,6 +208,8 @@ final class PopulationTest
         }
         System.out.println(name + ", " + size + " by " + size + " chunks populated: blocks " + level.placed + "; 26.3 features "
                 + level.features + "; block entities " + level.blockEntities + "; flowing " + level.flowing);
+        level.tooFar.stream().limit(5).forEach(System.out::println);
+        assertTrue(level.tooFar.isEmpty(), level.tooFar.size() + " reads or writes further than a chunk from the chunk decorated");
         return level;
     }
 

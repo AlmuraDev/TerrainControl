@@ -46,7 +46,27 @@ public final class NeoForgeEngine extends TerrainControlEngine
     }
 
     /**
-     * Gets a TerrainControl world, loading its configs the first time it is asked for.
+     * Loads a TerrainControl world of its own, for one level: two levels with the same configs (a Sponge world made from a
+     * TerrainControl dimension, beside the dimension's own) each have their own seed and generators.
+     *
+     * @param name   The world's name, the name of its folder in worlds.
+     * @param biomes The server's biomes.
+     * @return The world.
+     */
+    public NeoForgeWorld createWorld(final String name, final HolderGetter<Biome> biomes)
+    {
+        final File worldDir = new File(new File(this.configsDir, "worlds"), name);
+        if (!worldDir.isDirectory())
+        {
+            throw new IllegalArgumentException("No TerrainControl configs for world \"" + name + "\": " + worldDir + " is no folder");
+        }
+        TerrainControl.log(LogMarker.INFO, "Loading configs for a level of world \"{}\"", name);
+        return new NeoForgeWorld(name, worldDir, biomes);
+    }
+
+    /**
+     * Gets a TerrainControl world's configs, loading them the first time they are asked for: for what does not depend on a level
+     * (its biomes, its heights). A level gets a world of its own ({@link #createWorld(String, HolderGetter)}).
      *
      * @param name   The world's name, the name of its folder in worlds.
      * @param biomes The server's biomes.

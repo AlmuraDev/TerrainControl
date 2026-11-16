@@ -12,12 +12,14 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.RegistryOps;
 import net.minecraft.server.level.WorldGenRegion;
+import net.minecraft.util.Util;
 import net.minecraft.world.level.LevelHeightAccessor;
 import net.minecraft.world.level.NoiseColumn;
 import net.minecraft.world.level.StructureManager;
 import net.minecraft.world.level.WorldGenLevel;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.BiomeManager;
+import net.minecraft.world.level.biome.BiomeResolver;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkAccess;
@@ -30,11 +32,13 @@ import net.minecraft.world.level.levelgen.densityfunction.SamplerContext;
 import net.minecraft.world.level.levelgen.structure.StructureSet;
 import org.jspecify.annotations.Nullable;
 
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -57,7 +61,13 @@ public final class TCChunkGenerator extends ChunkGenerator
     private static final int COLUMN_CACHE_SIZE = 256;
 
     private final TCBiomeSource source;
-    private final Map<Long, BlockState[]> columnChunks = new ConcurrentHashMap<>();
+    /**
+     * The TerrainControl world of each level using this generator, by the level's RandomState. Several levels can share one generator
+     * (a Sponge world made from this dimension, beside the dimension's own), each with its own seed: each gets its own TerrainControl
+     * world, as TerrainControl's generators hold the seed.
+     */
+    private final Map<RandomState, NeoForgeWorld> levels = Collections.synchronizedMap(new WeakHashMap<>());
+    private final Map<NeoForgeWorld, Map<Long, BlockState[]>> columnChunks = Collections.synchronizedMap(new WeakHashMap<>());
 
     private TCChunkGenerator(final String worldName, final HolderGetter<Biome> biomes)
     {
@@ -70,9 +80,26 @@ public final class TCChunkGenerator extends ChunkGenerator
         this.source = source;
     }
 
+    /** The world's configs, for what does not depend on the level (sea level, heights) */
     private NeoForgeWorld world()
     {
         return this.source.world();
+    }
+
+    /**
+     * Gets the TerrainControl world of a level.
+     *
+     * @param randomState The level's RandomState.
+     * @return Its TerrainControl world.
+     */
+    private NeoForgeWorld world(final RandomState randomState)
+    {
+        final NeoForgeWorld world = this.levels.get(randomState);
+        if (world == null)
+        {
+            throw new IllegalStateException("No TerrainControl world for a level of \"" + this.source.worldName() + "\" yet");
+        }
+        return world;
     }
 
     @Override
@@ -85,9 +112,24 @@ public final class TCChunkGenerator extends ChunkGenerator
     public ChunkGeneratorStructureState createState(final HolderLookup<StructureSet> structureSets, final RandomState randomState,
             final long legacyLevelSeed)
     {
-        // Made when the level is: the first time TerrainControl gets the seed
-        world().initialize(legacyLevelSeed);
+        // Made when a level is: its own TerrainControl world, with the level's seed
+        final NeoForgeWorld world = this.source.createLevelWorld();
+        world.initialize(legacyLevelSeed);
+        this.levels.put(randomState, world);
+        this.source.bind(randomState, world);
         return super.createState(structureSets, randomState, legacyLevelSeed);
+    }
+
+    @Override
+    public CompletableFuture<ChunkAccess> createBiomes(final RandomState randomState, final Blender blender,
+            final StructureManager structureManager, final ChunkAccess protoChunk)
+    {
+        // The level's own biomes (26.3 would hand the biome source a climate sampler, which does not say which level)
+        final BiomeResolver resolver = this.source.resolverFor(randomState);
+        return CompletableFuture.supplyAsync(() -> {
+            protoChunk.fillBiomesFromNoise(resolver);
+            return protoChunk;
+        }, Util.backgroundExecutor().forName("createBiomes"));
     }
 
     @Override
@@ -95,7 +137,7 @@ public final class TCChunkGenerator extends ChunkGenerator
             final StructureManager structureManager, final BiomeManager biomeManager, @Nullable final WorldGenRegion carverBiomeRegion,
             final Set<Holder<Biome>> possibleBiomes)
     {
-        final NeoForgeWorld world = world();
+        final NeoForgeWorld world = world(randomState);
         world.lock().lock();
         try
         {
@@ -112,7 +154,7 @@ public final class TCChunkGenerator extends ChunkGenerator
     public void applyBiomeDecoration(final WorldGenLevel level, final ChunkAccess chunk, final StructureManager structureManager)
     {
         // TerrainControl's population, instead of the features of the vanilla biomes the chunks are saved as
-        final NeoForgeWorld world = world();
+        final NeoForgeWorld world = world(level.getLevel().getChunkSource().randomState());
         world.lock().lock();
         try
         {
@@ -137,18 +179,19 @@ public final class TCChunkGenerator extends ChunkGenerator
      * @param heightAccessor The level's heights.
      * @return The chunk's blocks, by (y - min y) * 256 + z * 16 + x.
      */
-    private BlockState[] columnChunk(final int x, final int z, final LevelHeightAccessor heightAccessor)
+    private BlockState[] columnChunk(final int x, final int z, final LevelHeightAccessor heightAccessor, final RandomState randomState)
     {
+        final NeoForgeWorld world = world(randomState);
+        final Map<Long, BlockState[]> columnChunks = this.columnChunks.computeIfAbsent(world, w -> new ConcurrentHashMap<>());
         final int chunkX = x >> 4;
         final int chunkZ = z >> 4;
         final long key = (long) chunkX << 32 | chunkZ & 0xFFFFFFFFL;
-        BlockState[] blocks = this.columnChunks.get(key);
+        BlockState[] blocks = columnChunks.get(key);
         if (blocks != null)
         {
             return blocks;
         }
         final ArrayChunkBuffer buffer = new ArrayChunkBuffer(chunkX, chunkZ, heightAccessor.getMinY(), heightAccessor.getHeight());
-        final NeoForgeWorld world = world();
         world.lock().lock();
         try
         {
@@ -158,11 +201,11 @@ public final class TCChunkGenerator extends ChunkGenerator
             world.lock().unlock();
         }
         blocks = buffer.blocks();
-        if (this.columnChunks.size() >= COLUMN_CACHE_SIZE)
+        if (columnChunks.size() >= COLUMN_CACHE_SIZE)
         {
-            this.columnChunks.clear();
+            columnChunks.clear();
         }
-        this.columnChunks.put(key, blocks);
+        columnChunks.put(key, blocks);
         return blocks;
     }
 
@@ -170,7 +213,7 @@ public final class TCChunkGenerator extends ChunkGenerator
     public int getBaseHeight(final int x, final int z, final Heightmap.Types type, final LevelHeightAccessor heightAccessor,
             final RandomState randomState)
     {
-        final BlockState[] blocks = columnChunk(x, z, heightAccessor);
+        final BlockState[] blocks = columnChunk(x, z, heightAccessor, randomState);
         for (int y = heightAccessor.getMaxY(); y >= heightAccessor.getMinY(); y--)
         {
             if (type.isOpaque().test(blocks[(y - heightAccessor.getMinY()) * 256 + (z & 15) * 16 + (x & 15)]))
@@ -184,7 +227,7 @@ public final class TCChunkGenerator extends ChunkGenerator
     @Override
     public NoiseColumn getBaseColumn(final int x, final int z, final LevelHeightAccessor heightAccessor, final RandomState randomState)
     {
-        final BlockState[] blocks = columnChunk(x, z, heightAccessor);
+        final BlockState[] blocks = columnChunk(x, z, heightAccessor, randomState);
         final BlockState[] column = new BlockState[heightAccessor.getHeight()];
         for (int i = 0; i < column.length; i++)
         {
@@ -216,8 +259,8 @@ public final class TCChunkGenerator extends ChunkGenerator
     public void addDebugScreenInfo(final List<String> result, final RandomState randomState, final BlockPos feetPos,
             final SamplerContext samplerContext)
     {
-        final NeoForgeWorld world = world();
-        if (world.isInitialized())
+        final NeoForgeWorld world = this.levels.get(randomState);
+        if (world != null)
         {
             final LocalBiome biome = world.getCalculatedBiome(feetPos.getX(), feetPos.getZ());
             result.add("TerrainControl " + world.getName() + ": " + biome.getName());

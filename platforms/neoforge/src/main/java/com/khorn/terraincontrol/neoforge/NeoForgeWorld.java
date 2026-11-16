@@ -329,10 +329,15 @@ public final class NeoForgeWorld implements LocalWorld
      */
     public void populate(final PopulationLevel level, final ChunkPos chunkPos)
     {
-        this.population = new Population(level, chunkPos.x(), chunkPos.z());
+        // As on 1.12: the chunk's population covers the 2 by 2 chunks from it, 7 blocks in. 26.3 lets the features step reach a
+        // chunk around the one it decorates; TerrainControl's own blocks stay within the 2 by 2, and 26.3's features it plants
+        // (trees, dungeons) are kept within 26.3's reach by RegionPopulationLevel.
+        final int chunkX = chunkPos.x();
+        final int chunkZ = chunkPos.z();
+        this.population = new Population(level, chunkX, chunkZ);
         try
         {
-            this.spawner.populate(ChunkCoordinate.fromChunkCoords(chunkPos.x(), chunkPos.z()));
+            this.spawner.populate(ChunkCoordinate.fromChunkCoords(chunkX, chunkZ));
         } finally
         {
             this.population = null;
