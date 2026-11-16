@@ -20,7 +20,8 @@ repositories {
     mavenCentral()
 }
 
-// Dev runs only, never the jar: a dimension to try a converted world in (/execute in terraincontrol:keystone run tp @s 0 250 0)
+// Dev runs only, never the jar: dimensions to try converted worlds in (/execute in terraincontrol:keystone run tp @s 0 250 0,
+// /execute in terraincontrol:glacier run tp @s 3 530 3 for Logan Pass)
 sourceSets {
     dev {
         java.srcDirs = []
