@@ -7,6 +7,14 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.WorldGenLevel;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.CrossCollisionBlock;
+import net.minecraft.world.level.block.FenceGateBlock;
+import net.minecraft.world.level.block.RedstoneWireBlock;
+import net.minecraft.world.level.block.StairBlock;
+import net.minecraft.world.level.block.TripWireBlock;
+import net.minecraft.world.level.block.WallBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.levelgen.Heightmap;
@@ -52,6 +60,27 @@ final class RegionPopulationLevel implements PopulationLevel
     public void setBlock(final BlockPos pos, final BlockState state)
     {
         this.level.setBlock(pos, state, FLAGS);
+        if (shapedByNeighbours(state))
+        {
+            // 1.12 joined these up as it drew them; 26.3 keeps the joins in the block, so have the game work them out from the
+            // neighbours once the chunk is done (its neighbours are placed by then)
+            this.level.getChunk(pos).markPosForPostProcessing(pos);
+        }
+    }
+
+    /**
+     * Gets whether a block's state follows its neighbours: glass panes, iron bars and fences join up, walls rise, stairs turn
+     * corners, chests pair up.
+     *
+     * @param state The block.
+     * @return Whether it does.
+     */
+    static boolean shapedByNeighbours(final BlockState state)
+    {
+        final Block block = state.getBlock();
+        return block instanceof CrossCollisionBlock || block instanceof WallBlock || block instanceof StairBlock
+                || block instanceof FenceGateBlock || block instanceof ChestBlock || block instanceof RedstoneWireBlock
+                || block instanceof TripWireBlock;
     }
 
     @Override
