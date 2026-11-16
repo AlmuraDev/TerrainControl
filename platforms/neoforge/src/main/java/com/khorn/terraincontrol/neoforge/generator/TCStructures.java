@@ -3,7 +3,12 @@ package com.khorn.terraincontrol.neoforge.generator;
 import com.khorn.terraincontrol.configuration.BiomeConfig;
 import com.khorn.terraincontrol.configuration.WorldConfig;
 import com.khorn.terraincontrol.neoforge.NeoForgeWorld;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.mojang.serialization.JsonOps;
 import net.minecraft.core.Holder;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.resources.RegistryOps;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.ChunkPos;
@@ -11,10 +16,16 @@ import net.minecraft.world.level.levelgen.LegacyRandomSource;
 import net.minecraft.world.level.levelgen.WorldgenRandom;
 import net.minecraft.world.level.levelgen.structure.Structure;
 import net.minecraft.world.level.levelgen.structure.StructureSet;
+import net.minecraft.world.level.levelgen.structure.TerrainAdjustment;
+import net.minecraft.world.level.levelgen.structure.structures.JigsawStructure;
 import net.minecraft.world.level.levelgen.structure.placement.ConcentricRingsStructurePlacement;
 import net.minecraft.world.level.levelgen.structure.placement.RandomSpreadStructurePlacement;
 import net.minecraft.world.level.levelgen.structure.placement.RandomSpreadType;
 import net.minecraft.world.level.levelgen.structure.placement.StructurePlacement;
+
+import java.util.Map;
+import java.util.WeakHashMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Which of 26.3's structures a TerrainControl world has, as 1.12's TerrainControl decided it.
@@ -30,6 +41,9 @@ import net.minecraft.world.level.levelgen.structure.placement.StructurePlacement
  */
 public final class TCStructures
 {
+    /** The villages as big as each world has them, by the server's registries (one set of them a server), then world and village */
+    private static final Map<HolderLookup.Provider, Map<String, Structure>> SIZED = new WeakHashMap<>();
+
     private static String name(final ResourceKey<Structure> structure)
     {
         return structure.identifier().getNamespace().equals("minecraft") ? structure.identifier().getPath() : "";
@@ -176,6 +190,72 @@ public final class TCStructures
     {
         final String name = structure.unwrapKey().map(TCStructures::name).orElse("");
         return name.equals("mineshaft") || name.equals("mineshaft_mesa");
+    }
+
+    /**
+     * Gets a structure as big as a world has it: for a village, 26.3's village laid out as far as the world's VillageSize takes it.
+     *
+     * <p>1.12's VillageSize put more of each house into a village (each kind's count up by the size, up to twice the size), so the
+     * village reached further. 26.3 lays a village out along its streets, as many pieces deep as its size (6); each VillageSize
+     * adds two more pieces of depth, as far out as 12 more blocks (up to 26.3's limit of 128 with the ground's edge), and so more
+     * streets and houses. The copy is only for laying the village out: it is saved as 26.3's own village (see createStructures).</p>
+     *
+     * @param world     The world.
+     * @param structure The structure.
+     * @param registries The server's registries, to copy the village with.
+     * @return The structure as big as the world has it; the structure itself when the world has it as 26.3 does.
+     */
+    public static Structure sized(final NeoForgeWorld world, final Holder<Structure> structure, final HolderLookup.Provider registries)
+    {
+        final int size = world.getConfigs().getWorldConfig().villageSize;
+        final String name = structure.unwrapKey().map(TCStructures::name).orElse("");
+        if (size <= 0 || !name.startsWith("village_") || !(structure.value() instanceof JigsawStructure))
+        {
+            return structure.value();
+        }
+        final Map<String, Structure> sized;
+        synchronized (SIZED)
+        {
+            sized = SIZED.computeIfAbsent(registries, r -> new ConcurrentHashMap<>());
+        }
+        return sized.computeIfAbsent(world.getName() + "/" + name, key -> resize(structure.value(), size, registries));
+    }
+
+    /**
+     * Gets a copy of a village, deeper and reaching further by a VillageSize.
+     *
+     * @param village    The village.
+     * @param size       The VillageSize, 1 or more.
+     * @param registries The server's registries.
+     * @return The copy; the village itself when it could not be copied.
+     */
+    static Structure resize(final Structure village, final int size, final HolderLookup.Provider registries)
+    {
+        final RegistryOps<JsonElement> ops = RegistryOps.create(JsonOps.INSTANCE, registries);
+        final JsonElement encoded = Structure.DIRECT_CODEC.encodeStart(ops, village).result().orElse(null);
+        if (!(encoded instanceof final JsonObject json))
+        {
+            return village;
+        }
+        final int edge = village.terrainAdaptation() == TerrainAdjustment.NONE ? 0 : 12;
+        json.addProperty("size", Math.min(JigsawStructure.MAX_DEPTH, depth(json) + 2 * size));
+        final JsonElement distance = json.get("max_distance_from_center");
+        final int horizontal = distance == null ? 80
+                : distance.isJsonObject() ? distance.getAsJsonObject().get("horizontal").getAsInt() : distance.getAsInt();
+        final int reach = Math.min(JigsawStructure.MAX_TOTAL_STRUCTURE_RANGE - edge, horizontal + 12 * size);
+        if (distance != null && distance.isJsonObject())
+        {
+            distance.getAsJsonObject().addProperty("horizontal", reach);
+        } else
+        {
+            json.addProperty("max_distance_from_center", reach);
+        }
+        return Structure.DIRECT_CODEC.parse(ops, json).result().orElse(village);
+    }
+
+    private static int depth(final JsonObject json)
+    {
+        return json.has("size") ? json.get("size").getAsInt() : 6;
     }
 
     private TCStructures()

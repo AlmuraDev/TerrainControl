@@ -1,6 +1,8 @@
 package com.khorn.terraincontrol.neoforge;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -18,6 +20,9 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.levelgen.structure.Structure;
+import com.google.gson.JsonObject;
+import com.mojang.serialization.JsonOps;
+import net.minecraft.resources.RegistryOps;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -154,5 +159,27 @@ final class StructureRulesTest
         // 26.3's newer structures never come into TerrainControl's worlds
         assertFalse(TCStructures.inWorld(orilla, structure("trial_chambers").unwrapKey().orElseThrow()));
         assertFalse(TCStructures.inWorld(orilla, structure("ruined_portal").unwrapKey().orElseThrow()));
+    }
+
+    private static JsonObject encoded(final Structure structure)
+    {
+        return Structure.DIRECT_CODEC.encodeStart(RegistryOps.create(JsonOps.INSTANCE, REGISTRIES), structure).getOrThrow().getAsJsonObject();
+    }
+
+    @Test
+    void villagesAsBigAsVillageSize()
+    {
+        // Tollana: VillageSize 3, villages 6 more pieces deep (12) and 36 blocks further out (116, 26.3's limit with the ground's edge)
+        final Holder<Structure> plains = structure("village_plains");
+        final Structure sized = TCStructures.sized(load("Tollana"), plains, REGISTRIES);
+        final JsonObject json = encoded(sized);
+        assertEquals(12, json.get("size").getAsInt());
+        final var distance = json.get("max_distance_from_center");
+        assertEquals(116, distance.isJsonObject() ? distance.getAsJsonObject().get("horizontal").getAsInt() : distance.getAsInt());
+        // Keystone: VillageSize 1
+        assertEquals(8, encoded(TCStructures.sized(load("Keystone"), plains, REGISTRIES)).get("size").getAsInt());
+        // VillageSize 0, and what is not a village: as 26.3 has them
+        assertSame(plains.value(), TCStructures.sized(load("Orilla"), plains, REGISTRIES));
+        assertSame(structure("mineshaft").value(), TCStructures.sized(load("Tollana"), structure("mineshaft"), REGISTRIES));
     }
 }

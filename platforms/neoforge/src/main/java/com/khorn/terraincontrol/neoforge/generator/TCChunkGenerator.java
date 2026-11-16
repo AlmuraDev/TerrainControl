@@ -28,6 +28,7 @@ import net.minecraft.world.level.levelgen.XoroshiroRandomSource;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.level.levelgen.structure.Structure;
 import net.minecraft.world.level.levelgen.structure.StructureStart;
+import net.minecraft.world.level.levelgen.structure.pieces.PiecesContainer;
 import net.minecraft.world.level.levelgen.structure.placement.StructurePlacement;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplateManager;
 import net.minecraft.core.registries.Registries;
@@ -249,11 +250,15 @@ public final class TCChunkGenerator extends ChunkGenerator
                     final StructureSet.StructureSelectionEntry selected = options.get(index);
                     final Structure structure = selected.structure().value();
                     final StructureStart previous = structureManager.getStartForStructure(structure, centerChunk);
-                    final StructureStart start = structure.generate(selected.structure(), level, registryAccess, this, this.source,
+                    // A village as big as the world's VillageSize: laid out by a bigger copy, then saved as the village it is
+                    final Structure sized = TCStructures.sized(world, selected.structure(), registryAccess);
+                    final StructureStart laidOut = sized.generate(selected.structure(), level, registryAccess, this, this.source,
                             climateSampler, state.randomState(), structureTemplateManager, state.getLevelSeed(), sourceChunkPos,
                             previous != null ? previous.getReferences() : 0, centerChunk,
                             biome -> TCStructures.inBiome(world, selected.structure(), biome) && (!TCStructures.isMineshaft(selected.structure())
                                     || TCStructures.mineshaftRoll(world, state.getLevelSeed(), sourceChunkPos, world.getBiomeConfig(biome))));
+                    final StructureStart start = sized == structure || !laidOut.isValid() ? laidOut
+                            : new StructureStart(structure, laidOut.getChunkPos(), laidOut.getReferences(), new PiecesContainer(laidOut.getPieces()));
                     if (start.isValid())
                     {
                         structureManager.setStartForStructure(structure, start, centerChunk);
