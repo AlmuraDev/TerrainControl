@@ -375,6 +375,8 @@ public final class NeoForgeWorld implements LocalWorld
     }
 
     private Population population;
+    /** For Almura's wild plants (AlmuraPlants), unseeded as on 1.12 */
+    private final Random plantRandom = new Random();
 
     /**
      * Populates a chunk: TerrainControl's resources, custom objects, trees and the rest. Only under {@link #lock()}.
@@ -595,7 +597,13 @@ public final class NeoForgeWorld implements LocalWorld
         }
         final BlockPos pos = new BlockPos(x, y, z);
         final PopulationLevel level = this.population.level();
-        level.setBlock(pos, ((NeoForgeMaterialData) material).internalBlock());
+        BlockState state = ((NeoForgeMaterialData) material).internalBlock();
+        if (state.is(Blocks.SHORT_GRASS) || state.is(Blocks.FERN))
+        {
+            // Now and then one of Almura's wild plants instead, as Almura's 1.12 TerrainControl did
+            state = AlmuraPlants.wild(state, getBiome(x, z).getTemperatureAt(x, y, z), this.plantRandom);
+        }
+        level.setBlock(pos, state);
         if (metaOrNull != null)
         {
             // A block entity, as a chest with its loot: loaded with the chunk
