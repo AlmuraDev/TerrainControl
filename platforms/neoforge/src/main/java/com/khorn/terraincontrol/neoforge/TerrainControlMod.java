@@ -56,6 +56,8 @@ public final class TerrainControlMod
         NeoForge.EVENT_BUS.addListener(SaplingListener::onGrow);
         // /tc worldinfo, /tc biome, /tc print
         NeoForge.EVENT_BUS.addListener(TCCommands::onRegisterCommands);
+        // The spawn lists read for the biome modifier: read again on the next server start
+        NeoForge.EVENT_BUS.addListener((final net.neoforged.neoforge.event.server.ServerStoppedEvent event) -> ModMobs.clear());
     }
 
     private static void onCommonSetup(final FMLCommonSetupEvent event)
