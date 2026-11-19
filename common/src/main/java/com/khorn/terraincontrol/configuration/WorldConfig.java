@@ -124,6 +124,8 @@ public class WorldConfig extends ConfigFile
     // Villages
     public boolean villagesEnabled;
     public int villageSize;
+    /** Whether monsters spawn by the biomes (26.3: no monster spawns in any of the world's biomes when false) */
+    public boolean monstersEnabled;
     public int villageDistance; // Has a minimum of 9
 
     // Rare buildings (also swamp huts and jungle temples)
@@ -427,6 +429,8 @@ public class WorldConfig extends ConfigFile
         this.strongholdCount = reader.getSetting(WorldStandardValues.STRONGHOLD_COUNT);
         this.strongholdDistance = reader.getSetting(WorldStandardValues.STRONGHOLD_DISTANCE);
         this.strongholdSpread = reader.getSetting(WorldStandardValues.STRONGHOLD_SPREAD);
+
+        this.monstersEnabled = reader.getSetting(WorldStandardValues.MONSTERS_ENABLED);
 
         this.villagesEnabled = reader.getSetting(WorldStandardValues.VILLAGES_ENABLED);
         this.villageDistance = reader.getSetting(WorldStandardValues.VILLAGE_DISTANCE);
@@ -881,6 +885,13 @@ public class WorldConfig extends ConfigFile
 
         writer.putSetting(WorldStandardValues.STRONGHOLD_SPREAD, this.strongholdSpread,
                 "How concentrated strongholds are around the spawn (minimum is 1, default is 3). Lower number, lower concentration.");
+
+        // Mobs
+        writer.smallTitle("Mobs");
+
+        writer.putSetting(WorldStandardValues.MONSTERS_ENABLED, this.monstersEnabled,
+                "Whether monsters spawn in this world's biomes (those of the biome configs' SpawnMonsters, and 26.3's own).",
+                "When false, animals, water creatures and ambient mobs still spawn as the biome configs say.");
 
         // Villages
         writer.smallTitle("Villages");

@@ -46,7 +46,7 @@ final class ModMobs implements BiomeModifier
     public void modify(final RegistryAccess registryAccess, final Holder<Biome> biome, final Phase phase,
             final ModifiableBiomeInfo.BiomeInfo.Builder builder)
     {
-        if (phase != Phase.ADD)
+        if (phase != Phase.ADD && phase != Phase.REMOVE)
         {
             return;
         }
@@ -55,12 +55,26 @@ final class ModMobs implements BiomeModifier
         {
             return;
         }
-        final BiomeConfig config = config(registryAccess, biome, key.get());
+        final NeoForgeWorld world = world(registryAccess, key.get());
+        final BiomeConfig config = world == null ? null : world.getBiomeConfig(biome);
         if (config == null)
         {
             return;
         }
-        add(builder, MobCategory.MONSTER, config.spawnMonsters, config);
+        final boolean monsters = world.getConfigs().getWorldConfig().monstersEnabled;
+        if (phase == Phase.REMOVE)
+        {
+            if (!monsters)
+            {
+                // MonstersEnabled: false: none at all, 26.3's own (the exported biome's) and those other mods add
+                builder.getMobSpawnSettings().removeSpawns(spawn -> spawn.value().type().getCategory() == MobCategory.MONSTER);
+            }
+            return;
+        }
+        if (monsters)
+        {
+            add(builder, MobCategory.MONSTER, config.spawnMonsters, config);
+        }
         add(builder, MobCategory.CREATURE, config.spawnCreatures, config);
         add(builder, MobCategory.WATER_CREATURE, config.spawnWaterCreatures, config);
         add(builder, MobCategory.AMBIENT, config.spawnAmbientCreatures, config);
@@ -72,8 +86,8 @@ final class ModMobs implements BiomeModifier
         return CODEC;
     }
 
-    /** The config of one of TerrainControl's biomes, {@code terraincontrol:<world>/<biome>}: from its world's configs */
-    private static BiomeConfig config(final RegistryAccess registryAccess, final Holder<Biome> biome, final ResourceKey<Biome> key)
+    /** The world of one of TerrainControl's biomes, {@code terraincontrol:<world>/<biome>}, its configs loaded */
+    private static NeoForgeWorld world(final RegistryAccess registryAccess, final ResourceKey<Biome> key)
     {
         final String path = key.identifier().getPath();
         final int slash = path.indexOf('/');
@@ -89,7 +103,7 @@ final class ModMobs implements BiomeModifier
         }
         try
         {
-            return engine.loadWorld(worldName, registryAccess.lookupOrThrow(Registries.BIOME)).getBiomeConfig(biome);
+            return engine.loadWorld(worldName, registryAccess.lookupOrThrow(Registries.BIOME));
         } catch (final RuntimeException e)
         {
             TerrainControl.log(LogMarker.WARN, "No mod mobs for {}: its world's configs did not load ({})", key.identifier(), e.toString());

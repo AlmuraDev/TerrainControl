@@ -112,6 +112,7 @@ public class WorldStandardValues extends Settings
             POPULATION_BOUNDS_CHECK = booleanSetting("PopulationBoundsCheck", true),
             NETHER_FORTRESSES_ENABLED = booleanSetting("NetherFortressesEnabled", false),
             STRONGHOLDS_ENABLED = booleanSetting("StrongholdsEnabled", true),
+            MONSTERS_ENABLED = booleanSetting("MonstersEnabled", true),
             VILLAGES_ENABLED = booleanSetting("VillagesEnabled", true),
             MINESHAFTS_ENABLED = booleanSetting("MineshaftsEnabled", true),
             RARE_BUILDINGS_ENABLED = booleanSetting("RareBuildingsEnabled", true),
