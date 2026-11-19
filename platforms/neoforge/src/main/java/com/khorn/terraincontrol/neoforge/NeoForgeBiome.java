@@ -34,7 +34,7 @@ public final class NeoForgeBiome implements LocalBiome
         return ResourceKey.create(Registries.BIOME, Identifier.fromNamespaceAndPath("terraincontrol", slug(world) + "/" + slug(biome)));
     }
 
-    private static String slug(final String name)
+    static String slug(final String name)
     {
         // "+" is spelt out: Almura has both "bb_Caverns M" and "bb_Caverns+ M"
         final String slug = name.toLowerCase(java.util.Locale.ROOT).replace("+", "_plus_")

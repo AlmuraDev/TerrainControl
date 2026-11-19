@@ -14,7 +14,9 @@ import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.fml.loading.FMLPaths;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.common.world.BiomeModifier;
 import net.neoforged.neoforge.registries.DeferredRegister;
+import net.neoforged.neoforge.registries.NeoForgeRegistries;
 
 /**
  * TerrainControl's mod for Minecraft 26.3.
@@ -32,8 +34,13 @@ public final class TerrainControlMod
     private static final DeferredRegister<MapCodec<? extends BiomeSource>> BIOME_SOURCES =
             DeferredRegister.create(Registries.BIOME_SOURCE, ID);
 
+    private static final DeferredRegister<MapCodec<? extends BiomeModifier>> BIOME_MODIFIERS =
+            DeferredRegister.create(NeoForgeRegistries.Keys.BIOME_MODIFIER_SERIALIZERS, ID);
+
     static
     {
+        // Other mods' mobs in TerrainControl's biomes, as their configs list them
+        BIOME_MODIFIERS.register("mod_mobs", () -> ModMobs.CODEC);
         CHUNK_GENERATORS.register(ID, () -> TCChunkGenerator.CODEC);
         BIOME_SOURCES.register(ID, () -> TCBiomeSource.CODEC);
     }
@@ -43,6 +50,7 @@ public final class TerrainControlMod
         NeoForgeLogger.LOGGER.info("TerrainControl {} starting", container.getModInfo().getVersion());
         CHUNK_GENERATORS.register(modBus);
         BIOME_SOURCES.register(modBus);
+        BIOME_MODIFIERS.register(modBus);
         modBus.addListener(TerrainControlMod::onCommonSetup);
         // Saplings grow into their biome's own trees
         NeoForge.EVENT_BUS.addListener(SaplingListener::onGrow);

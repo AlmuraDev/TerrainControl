@@ -86,6 +86,28 @@ public final class NeoForgeEngine extends TerrainControlEngine
     }
 
     /**
+     * Gets the folder of a world as its biomes' ids name it ({@code terraincontrol:<world>/<biome>}, the world in lower case).
+     *
+     * @param slug The world as the ids name it.
+     * @return The world's name, its folder in worlds; null when there is none.
+     */
+    public String worldFolder(final String slug)
+    {
+        final File[] folders = new File(this.configsDir, "worlds").listFiles(File::isDirectory);
+        if (folders != null)
+        {
+            for (final File folder : folders)
+            {
+                if (NeoForgeBiome.slug(folder.getName()).equals(slug))
+                {
+                    return folder.getName();
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
      * Creates the engine.
      *
      * @param configsDir TerrainControl's folder: its TerrainControl.ini, GlobalObjects and worlds.
