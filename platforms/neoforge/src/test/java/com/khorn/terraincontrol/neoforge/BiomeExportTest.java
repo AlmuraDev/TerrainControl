@@ -138,7 +138,9 @@ final class BiomeExportTest
             System.out.println(world.getFileName() + ": " + (exporter.biomes - before) + " biomes");
         }
         exporter.writeOverworldTag(Path.of(to));
-        System.out.println("Exported " + exporter.biomes + " biomes; mobs left out " + exporter.skippedMobs);
+        exporter.writeRubberTreeTag(Path.of(to));
+        System.out.println("Exported " + exporter.biomes + " biomes (" + exporter.rubberTrees.size() + " with rubber trees); mobs left out "
+                + exporter.skippedMobs);
         assertEquals(exporter.biomes, decodeAll(registries, Path.of(to)));
     }
 }

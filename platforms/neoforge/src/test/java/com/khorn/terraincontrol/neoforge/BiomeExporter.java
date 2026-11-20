@@ -2,23 +2,30 @@ package com.khorn.terraincontrol.neoforge;
 
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.khorn.terraincontrol.LocalBiome;
 import com.khorn.terraincontrol.configuration.BiomeConfig;
 import com.khorn.terraincontrol.configuration.WeightedMobSpawnGroup;
+import com.khorn.terraincontrol.util.minecraftTypes.DefaultBiome;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.biome.Biome;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Writes a TerrainControl world's custom biomes as 26.3 biomes, into a datapack: data/terraincontrol/worldgen/biome/&lt;world&gt;/&lt;biome&gt;.json,
@@ -42,6 +49,14 @@ final class BiomeExporter
     /** Every biome written, for the overworld tag */
     final java.util.List<String> written = new java.util.ArrayList<>();
     final Map<String, Integer> skippedMobs = new HashMap<>();
+    /** The biomes written whose vanilla biome (ReplaceToBiomeName) grows Tech Reborn's rubber trees, for its tag */
+    final java.util.List<String> rubberTrees = new java.util.ArrayList<>();
+
+    /**
+     * The vanilla biomes Tech Reborn's rubber trees grow in: its #techreborn:has_rubber_trees is #minecraft:is_forest,
+     * #minecraft:is_taiga and minecraft:swamp. Read from 26.3's own tags, so they follow the game's version.
+     */
+    private static final Set<String> RUBBER_TREE_BIOMES = rubberTreeBiomes();
 
     /**
      * Writes a world's custom biomes.
@@ -73,6 +88,11 @@ final class BiomeExporter
                     StandardCharsets.UTF_8);
             this.biomes++;
             this.written.add(key.identifier().toString());
+            final String vanilla = vanillaBiome(biome.getBiomeConfig().replaceToBiomeName);
+            if (vanilla != null && RUBBER_TREE_BIOMES.contains(vanilla))
+            {
+                this.rubberTrees.add(key.identifier().toString());
+            }
         }
     }
 
@@ -94,6 +114,71 @@ final class BiomeExporter
         final Path file = datapack.resolve("data/minecraft/tags/worldgen/biome/is_overworld.json");
         Files.createDirectories(file.getParent());
         Files.writeString(file, new GsonBuilder().setPrettyPrinting().create().toJson(tag) + "\n", StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Writes Tech Reborn's rubber tree biome tag with the biomes written whose vanilla biome grows rubber trees, so its rubber
+     * trees (a NeoForge biome modifier on #techreborn:has_rubber_trees) grow in TerrainControl's forests, taigas and swamps too.
+     * Tech Reborn only reads the tag when it is installed.
+     *
+     * @param datapack The datapack's folder.
+     * @throws IOException When writing fails.
+     */
+    void writeRubberTreeTag(final Path datapack) throws IOException
+    {
+        final JsonObject tag = new JsonObject();
+        tag.addProperty("replace", false);
+        final JsonArray values = new JsonArray();
+        this.rubberTrees.stream().sorted().forEach(values::add);
+        tag.add("values", values);
+        final Path file = datapack.resolve("data/techreborn/tags/worldgen/biome/has_rubber_trees.json");
+        Files.createDirectories(file.getParent());
+        Files.writeString(file, new GsonBuilder().setPrettyPrinting().create().toJson(tag) + "\n", StandardCharsets.UTF_8);
+    }
+
+    /** The 26.3 id of the vanilla biome a 1.12 biome name (ReplaceToBiomeName) stands for, or null for none or a custom biome */
+    static String vanillaBiome(final String name)
+    {
+        final Integer legacyId = name == null || name.isEmpty() ? null : DefaultBiome.getId(name);
+        return legacyId == null ? null : VanillaBiomes.byLegacyId(legacyId).identifier().toString();
+    }
+
+    private static Set<String> rubberTreeBiomes()
+    {
+        final Set<String> biomes = new HashSet<>();
+        addTag(biomes, "minecraft:is_forest");
+        addTag(biomes, "minecraft:is_taiga");
+        biomes.add("minecraft:swamp");
+        return Set.copyOf(biomes);
+    }
+
+    /** Adds the biomes of one of 26.3's biome tags (and the tags it includes), read from the game's jar */
+    private static void addTag(final Set<String> biomes, final String tag)
+    {
+        final Identifier id = Identifier.parse(tag);
+        final String resource = "/data/" + id.getNamespace() + "/tags/worldgen/biome/" + id.getPath() + ".json";
+        try (InputStream in = Biome.class.getResourceAsStream(resource))
+        {
+            if (in == null)
+            {
+                throw new IllegalStateException("26.3 has no biome tag " + tag);
+            }
+            for (final JsonElement value : JsonParser.parseReader(new InputStreamReader(in, StandardCharsets.UTF_8)).getAsJsonObject()
+                    .getAsJsonArray("values"))
+            {
+                final String entry = value.isJsonObject() ? value.getAsJsonObject().get("id").getAsString() : value.getAsString();
+                if (entry.startsWith("#"))
+                {
+                    addTag(biomes, entry.substring(1));
+                } else
+                {
+                    biomes.add(Identifier.parse(entry).toString());
+                }
+            }
+        } catch (final IOException e)
+        {
+            throw new IllegalStateException("Couldn't read biome tag " + tag, e);
+        }
     }
 
     private static String color(final int rgb)
