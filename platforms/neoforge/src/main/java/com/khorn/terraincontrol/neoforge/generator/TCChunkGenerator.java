@@ -187,17 +187,29 @@ public final class TCChunkGenerator extends ChunkGenerator
             final StructureManager structureManager, final BiomeManager biomeManager, @Nullable final WorldGenRegion carverBiomeRegion,
             final Set<Holder<Biome>> possibleBiomes)
     {
+        // On 26.3's background threads, as 26.3's own terrain: each thread has its own terrain generator (NeoForgeWorld), and the
+        // same chunk comes out on any of them. (Done here, it would run on 26.3's one worldgen thread, a chunk at a time.)
         final NeoForgeWorld world = world(randomState);
-        world.lock().lock();
-        try
-        {
-            world.getTerrainGenerator().generate(new ChunkAccessBuffer(chunk));
-        } finally
-        {
-            world.lock().unlock();
-        }
-        Heightmap.primeHeightmaps(chunk, EnumSet.of(Heightmap.Types.OCEAN_FLOOR_WG, Heightmap.Types.WORLD_SURFACE_WG));
-        return CompletableFuture.completedFuture(chunk);
+        return CompletableFuture.supplyAsync(() -> {
+            final List<LevelChunkSection> sections = new ArrayList<>();
+            for (final LevelChunkSection section : chunk.getSections())
+            {
+                section.acquire();
+                sections.add(section);
+            }
+            try
+            {
+                world.getTerrainGenerator().generate(new ChunkAccessBuffer(chunk));
+            } finally
+            {
+                for (final LevelChunkSection section : sections)
+                {
+                    section.release();
+                }
+            }
+            Heightmap.primeHeightmaps(chunk, EnumSet.of(Heightmap.Types.OCEAN_FLOOR_WG, Heightmap.Types.WORLD_SURFACE_WG));
+            return chunk;
+        }, Util.backgroundExecutor().forName("buildTerrain"));
     }
 
     @Override
@@ -396,14 +408,8 @@ public final class TCChunkGenerator extends ChunkGenerator
             return blocks;
         }
         final ArrayChunkBuffer buffer = new ArrayChunkBuffer(chunkX, chunkZ, heightAccessor.getMinY(), heightAccessor.getHeight());
-        world.lock().lock();
-        try
-        {
-            world.getTerrainGenerator().generate(buffer);
-        } finally
-        {
-            world.lock().unlock();
-        }
+        // This thread's own terrain generator (NeoForgeWorld)
+        world.getTerrainGenerator().generate(buffer);
         blocks = buffer.blocks();
         if (columnChunks.size() >= COLUMN_CACHE_SIZE)
         {

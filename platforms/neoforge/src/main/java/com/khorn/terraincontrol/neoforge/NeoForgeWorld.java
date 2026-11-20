@@ -59,8 +59,11 @@ import java.util.concurrent.locks.ReentrantLock;
  * <p>The configs are loaded when the world is made; the biome generator and the terrain generator need the world's seed, and are
  * made by {@link #initialize(long)} once the level is created.</p>
  *
- * <p>TerrainControl's generators keep their working state in fields, and 26.3 generates chunks on several threads at once, so all
- * of TerrainControl's generating runs under {@link #lock()}, one chunk at a time.</p>
+ * <p>TerrainControl's generators keep their working state in fields, and 26.3 generates chunks on several threads at once, so
+ * each thread has a biome generator and a terrain generator of its own ({@link #getBiomeGenerator()},
+ * {@link #getTerrainGenerator()}): the same seed and configs make the same terrain and biomes on any thread, as they reseed for
+ * every chunk. Population (and a sapling growing into a custom tree) writes into the level and keeps the custom objects' state,
+ * so it runs under {@link #lock()}, one chunk at a time, as 26.3 runs its own features step.</p>
  *
  * <p>Population runs in 26.3's features step ({@link #populate(PopulationLevel, ChunkPos)}): the blocks TerrainControl
  * reads and writes are those of that step's level, within the chunks 1.12 let it write to.</p>
@@ -79,8 +82,11 @@ public final class NeoForgeWorld implements LocalWorld
 
     private volatile boolean initialized;
     private long seed;
-    private BiomeGenerator biomeGenerator;
-    private ChunkProviderTC terrain;
+    /**
+     * Each thread's generators, made on the thread's first use. A map of the world's own, not a ThreadLocal: the generators refer
+     * to the world, so a ThreadLocal's would keep an unloaded world in every thread for good.
+     */
+    private final Map<Thread, Generators> generators = new ConcurrentHashMap<>();
     private CustomObjectStructureCache structureCache;
     private ObjectSpawner spawner;
 
@@ -117,8 +123,6 @@ public final class NeoForgeWorld implements LocalWorld
                 return;
             }
             this.seed = seed;
-            this.biomeGenerator = TerrainControl.getBiomeModeManager().createCached(this.settings.getWorldConfig().biomeMode, this);
-            this.terrain = new ChunkProviderTC(this.settings, this);
             this.structureCache = new CustomObjectStructureCache(this);
             this.spawner = new ObjectSpawner(this.settings, this);
             this.initialized = true;
@@ -139,8 +143,49 @@ public final class NeoForgeWorld implements LocalWorld
         return this.initialized;
     }
 
+    /** A thread's generators: the biome generator first, as the terrain generator asks the world for it */
+    private final class Generators
+    {
+        final BiomeGenerator biomes;
+        ChunkProviderTC terrain;
+
+        Generators()
+        {
+            this.biomes = TerrainControl.getBiomeModeManager().createCached(NeoForgeWorld.this.settings.getWorldConfig().biomeMode,
+                    NeoForgeWorld.this);
+        }
+
+        ChunkProviderTC terrain()
+        {
+            if (this.terrain == null)
+            {
+                this.terrain = new ChunkProviderTC(NeoForgeWorld.this.settings, NeoForgeWorld.this);
+            }
+            return this.terrain;
+        }
+    }
+
+    /** This thread's generators; null before {@link #initialize(long)} */
+    private Generators generators()
+    {
+        if (!this.initialized)
+        {
+            return null;
+        }
+        final Thread thread = Thread.currentThread();
+        Generators generators = this.generators.get(thread);
+        if (generators == null)
+        {
+            // The generators of threads that have ended go
+            this.generators.keySet().removeIf(other -> !other.isAlive());
+            generators = new Generators();
+            this.generators.put(thread, generators);
+        }
+        return generators;
+    }
+
     /**
-     * Gets the lock all of TerrainControl's generating for this world runs under.
+     * Gets the lock population runs under (and a sapling growing into a custom tree): one chunk at a time.
      *
      * @return The lock.
      */
@@ -150,13 +195,14 @@ public final class NeoForgeWorld implements LocalWorld
     }
 
     /**
-     * Gets the terrain generator. Only after {@link #initialize(long)}, and only under {@link #lock()}.
+     * Gets this thread's terrain generator. Only after {@link #initialize(long)}.
      *
      * @return The terrain generator.
      */
     public ChunkProviderTC getTerrainGenerator()
     {
-        return this.terrain;
+        final Generators generators = generators();
+        return generators == null ? null : generators.terrain();
     }
 
     /**
@@ -331,7 +377,9 @@ public final class NeoForgeWorld implements LocalWorld
     @Override
     public BiomeGenerator getBiomeGenerator()
     {
-        return this.biomeGenerator;
+        // This thread's own (see Generators)
+        final Generators generators = generators();
+        return generators == null ? null : generators.biomes;
     }
 
     @Override
@@ -350,7 +398,7 @@ public final class NeoForgeWorld implements LocalWorld
     @Override
     public LocalBiome getCalculatedBiome(final int x, final int z)
     {
-        return getBiomeById(this.biomeGenerator.getBiome(x, z));
+        return getBiomeById(getBiomeGenerator().getBiome(x, z));
     }
 
     // ----- Population: TerrainControl's ObjectSpawner, in 26.3's features step -----

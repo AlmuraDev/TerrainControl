@@ -83,6 +83,32 @@ public class MesaSurfaceGenerator implements SurfaceGenerator
         return this.blockDataValuesArray[(j + l + 64) % 64];
     }
 
+    /** Whether the bands (and the Bryce noise) are made: the same in every chunk */
+    private volatile boolean initialized;
+
+    /**
+     * Makes the bands and the Bryce noise from the world's seed, as 1.12's vanilla mesa did. (They were made from the random of the
+     * first chunk of the biome generated, so they depended on which chunk came first after a start, and two threads could make
+     * them at once.)
+     *
+     * @param worldSeed The world's seed.
+     */
+    private synchronized void initialize(long worldSeed)
+    {
+        if (this.initialized)
+        {
+            return;
+        }
+        this.initializeSmallByteArray(new Random(worldSeed));
+        if (this.isBryceMesa)
+        {
+            Random random = new Random(worldSeed);
+            this.noiseGenBryce1 = new NoiseGeneratorNewOctaves(random, 4);
+            this.noiseGenBryce2 = new NoiseGeneratorNewOctaves(random, 1);
+        }
+        this.initialized = true;
+    }
+
     private void initializeSmallByteArray(Random random)
     {
         this.blockDataValuesArray = new LocalMaterialData[64];
@@ -178,22 +204,15 @@ public class MesaSurfaceGenerator implements SurfaceGenerator
         int x = xInWorld & 0xf;
         int z = zInWorld & 0xf;
         double noise = generatingChunk.getNoise(x, z);
-        if (this.blockDataValuesArray == null)
+        if (!this.initialized)
         {
-            this.initializeSmallByteArray(generatingChunk.random);
+            initialize(generatingChunk.worldSeed);
         }
 
         // Bryce spike calculations
         double bryceHeight = 0.0D;
         if (this.isBryceMesa)
         {
-            if (this.noiseGenBryce1 == null || this.noiseGenBryce2 == null)
-            {
-                Random newRandom = new Random(generatingChunk.random.nextLong());
-
-                this.noiseGenBryce1 = new NoiseGeneratorNewOctaves(newRandom, 4);
-                this.noiseGenBryce2 = new NoiseGeneratorNewOctaves(newRandom, 1);
-            }
 
             int k = (xInWorld & -16) + (zInWorld & 15);
             int l = (zInWorld & -16) + (xInWorld & 15);

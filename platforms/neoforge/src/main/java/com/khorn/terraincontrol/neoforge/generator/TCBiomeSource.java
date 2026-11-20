@@ -227,14 +227,8 @@ public final class TCBiomeSource extends BiomeSource
         {
             final Holder<Biome>[] column = new Holder[16];
             final int[] ids;
-            this.world.lock().lock();
-            try
-            {
-                ids = this.world.getBiomeGenerator().getBiomes(null, chunkX << 4, chunkZ << 4, 16, 16, OutputType.DEFAULT_FOR_WORLD);
-            } finally
-            {
-                this.world.lock().unlock();
-            }
+            // This thread's own biome generator (NeoForgeWorld)
+            ids = this.world.getBiomeGenerator().getBiomes(null, chunkX << 4, chunkZ << 4, 16, 16, OutputType.DEFAULT_FOR_WORLD);
             for (int quartZ = 0; quartZ < 4; quartZ++)
             {
                 for (int quartX = 0; quartX < 4; quartX++)

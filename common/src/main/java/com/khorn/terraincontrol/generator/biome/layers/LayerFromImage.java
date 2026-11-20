@@ -11,6 +11,8 @@ import java.awt.image.IndexColorModel;
 import java.awt.image.Raster;
 import java.io.File;
 import java.io.IOException;
+import java.util.Map;
+import java.util.WeakHashMap;
 
 import javax.imageio.ImageIO;
 
@@ -34,6 +36,37 @@ public class LayerFromImage extends Layer
         this.imageMode = config.imageMode;
         this.fillBiome = world.getBiomeByName(config.imageFillBiome).getIds().getGenerationId();
 
+        // The map is read once a world: every thread's biome generator has a layer of its own, all with the same map
+        final MapData data;
+        synchronized (MAPS)
+        {
+            MapData read = MAPS.get(config);
+            if (read == null)
+            {
+                read = read(config, this.fillBiome);
+                MAPS.put(config, read);
+            }
+            data = read;
+        }
+        this.biomeMap = data.biomeMap;
+        this.mapWidth = data.mapWidth;
+        this.mapHeight = data.mapHeight;
+    }
+
+    /** A map read from its image: the biome ids, rotated as the config says */
+    private static final class MapData
+    {
+        short[] biomeMap;
+        int mapWidth;
+        int mapHeight;
+    }
+
+    /** The maps read, by the world's config (a map holds no reference to it) */
+    private static final Map<WorldConfig, MapData> MAPS = new WeakHashMap<WorldConfig, MapData>();
+
+    private static MapData read(WorldConfig config, int fillBiome)
+    {
+        final MapData data = new MapData();
         // Read from file. The image is converted one row at a time straight into a short[] of
         // biome ids (rotated as it goes), so large maps never hold a full int[] copy of the pixels.
         final File image = new File(config.settingsDir, config.imageFile);
@@ -47,9 +80,9 @@ public class LayerFromImage extends Layer
             final int imageHeight = map.getHeight();
             final boolean swapSides = config.imageOrientation == WorldConfig.ImageOrientation.West
                     || config.imageOrientation == WorldConfig.ImageOrientation.East;
-            this.mapWidth = swapSides ? imageHeight : imageWidth;
-            this.mapHeight = swapSides ? imageWidth : imageHeight;
-            this.biomeMap = new short[imageWidth * imageHeight];
+            data.mapWidth = swapSides ? imageHeight : imageWidth;
+            data.mapHeight = swapSides ? imageWidth : imageHeight;
+            data.biomeMap = new short[imageWidth * imageHeight];
 
             // Paletted images can be looked up per palette index instead of per colour
             short[] paletteBiomes = null;
@@ -98,17 +131,18 @@ public class LayerFromImage extends Layer
                             index = y * imageWidth + x;
                             break;
                     }
-                    this.biomeMap[index] = biome;
+                    data.biomeMap[index] = biome;
                 }
             }
         } catch (IOException ioexception)
         {
             TerrainControl.log(LogMarker.FATAL, "Could not read biome map {}: {}", image, ioexception.getMessage());
             // Fall back to a 1x1 map of the fill biome so generation can continue
-            this.mapWidth = 1;
-            this.mapHeight = 1;
-            this.biomeMap = new short[] {(short) fillBiome};
+            data.mapWidth = 1;
+            data.mapHeight = 1;
+            data.biomeMap = new short[] {(short) fillBiome};
         }
+        return data;
     }
 
     private static short toBiome(WorldConfig config, int rgb, int fillBiome)

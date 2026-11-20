@@ -322,7 +322,7 @@ public class ChunkProviderTC
         this.noise4 = this.noiseGen4.a(this.noise4, chunkCoord.getBlockX(), chunkCoord.getBlockZ(), CHUNK_X_SIZE,
                 CHUNK_Z_SIZE, d1 * 2.0D, d1 * 2.0D, 1.0D);
 
-        GeneratingChunk generatingChunk = new GeneratingChunk(random, waterLevel, noise4, heightCap);
+        GeneratingChunk generatingChunk = new GeneratingChunk(random, waterLevel, noise4, heightCap, this.localWorld.getSeed());
 
         for (int x = 0; x < CHUNK_X_SIZE; x++)
         {

@@ -93,6 +93,11 @@ public final class LayerFactory
             iceGroup.processBiomeData(world);
         }
 
+        // What is left of each group's rarity, counted down here and not in the group: every thread's biome generator makes these
+        // layers, and each must start from the group's own (the group's was counted down, so a second generator came out different)
+        int normalGroupRarity = normalGroup.totalGroupRarity;
+        int iceGroupRarity = iceGroup.totalGroupRarity;
+
         LocalBiome[][] normalBiomeMap = new LocalBiome[worldConfig.GenerationDepth + 1][];
         LocalBiome[][] iceBiomeMap = new LocalBiome[worldConfig.GenerationDepth + 1][];
 
@@ -113,25 +118,25 @@ public final class LayerFactory
                 {
                     for (int t = 0; t < biomeConfig.biomeRarity; t++)
                         normalBiomes.add(biome);
-                    normalGroup.totalGroupRarity -= biomeConfig.biomeRarity;
+                    normalGroupRarity -= biomeConfig.biomeRarity;
                 }
 
                 if (iceGroup.containsBiome(biomeConfig.getName()))
                 {
                     for (int t = 0; t < biomeConfig.biomeRarity; t++)
                         iceBiomes.add(biome);
-                    iceGroup.totalGroupRarity -= biomeConfig.biomeRarity;
+                    iceGroupRarity -= biomeConfig.biomeRarity;
                 }
 
             }
 
             if (!normalBiomes.isEmpty())
-                normalBiomeMap[i] = normalBiomes.toArray(new LocalBiome[normalBiomes.size() + normalGroup.totalGroupRarity]);
+                normalBiomeMap[i] = normalBiomes.toArray(new LocalBiome[normalBiomes.size() + normalGroupRarity]);
             else
                 normalBiomeMap[i] = new LocalBiome[0];
 
             if (!iceBiomes.isEmpty())
-                iceBiomeMap[i] = iceBiomes.toArray(new LocalBiome[iceBiomes.size() + iceGroup.totalGroupRarity]);
+                iceBiomeMap[i] = iceBiomes.toArray(new LocalBiome[iceBiomes.size() + iceGroupRarity]);
             else
                 iceBiomeMap[i] = new LocalBiome[0];
 

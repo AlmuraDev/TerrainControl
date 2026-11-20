@@ -19,12 +19,15 @@ public final class GeneratingChunk
 
     public final int heightCap;
     public final Random random;
+    /** The world's seed, for what is the same in every chunk of it (the Mesa surface's bands) */
+    public final long worldSeed;
     private final byte[] waterLevel;
     private final double[] surfaceNoise;
 
-    GeneratingChunk(Random random, byte[] waterLevel, double[] surfaceNoise, int heightCap)
+    GeneratingChunk(Random random, byte[] waterLevel, double[] surfaceNoise, int heightCap, long worldSeed)
     {
         this.random = random;
+        this.worldSeed = worldSeed;
         this.waterLevel = waterLevel;
         this.surfaceNoise = surfaceNoise;
         this.heightCap = heightCap;

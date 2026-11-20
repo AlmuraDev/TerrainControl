@@ -16,7 +16,6 @@ public final class BiomeGroupManager
 {
 
     public static final int MAX_BIOME_GROUP_COUNT = 127;
-    private int cumulativeGroupRarity = 0;
     private Map<String, BiomeGroup> nameToGroup = new LinkedHashMap<String, BiomeGroup>(4);
     private Map<Integer, BiomeGroup> idToGroup = new LinkedHashMap<Integer, BiomeGroup>(4);
 
@@ -129,13 +128,14 @@ public final class BiomeGroupManager
     public SortedMap<Integer, BiomeGroup> getGroupDepthMap(int depth)
     {
         TreeMap<Integer, BiomeGroup> map = new TreeMap<Integer, BiomeGroup>();
-        this.cumulativeGroupRarity = 0;
+        // A local: the biome generators of several threads ask at once
+        int cumulativeGroupRarity = 0;
         for (BiomeGroup group : getGroups())
         {
             if (group.getGenerationDepth() == depth)
             {
-                this.cumulativeGroupRarity += group.getGroupRarity();
-                map.put(this.cumulativeGroupRarity, group);
+                cumulativeGroupRarity += group.getGroupRarity();
+                map.put(cumulativeGroupRarity, group);
             }
         }
         if (cumulativeGroupRarity < map.size() * 100)

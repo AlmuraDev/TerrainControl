@@ -53,6 +53,11 @@ tasks.named('test', Test) {
     if (rootProject.file('ServerConfigs-26.3/worlds').isDirectory()) {
         systemProperty('terraincontrol.configs', rootProject.file('ServerConfigs-26.3').absolutePath)
     }
+    // Generation on several threads (GenerationThreadsTest): -PgenRecord=<file> before a change, -PgenCompare=<file> after it,
+    // -PgenWorlds=<world,world> for only some worlds
+    systemProperty('tc.gen.record', (project.findProperty('genRecord') ?: '').toString())
+    systemProperty('tc.gen.compare', (project.findProperty('genCompare') ?: '').toString())
+    systemProperty('tc.gen.worlds', (project.findProperty('genWorlds') ?: '').toString())
     // The biome exporter (BiomeExportTest): -PbiomesTo=<datapack folder>
     systemProperty('tc.biomes.to', (project.findProperty('biomesTo') ?: '').toString())
     // Which objects population spawns around a spot (PopulationTest.objectsAt): -PobjectsAt=<world>,<x>,<z>,<seed>
