@@ -61,24 +61,32 @@ public final class TCBiomeSource extends BiomeSource
         this.biomes = biomes;
     }
 
+    /** The first level's TerrainControl world: what does not depend on a level is read from its configs */
+    private volatile NeoForgeWorld firstLevel;
+
     /**
-     * Gets the TerrainControl world's configs, loading them the first time: for what does not depend on a level.
+     * Gets the TerrainControl world's configs, for what does not depend on a level (heights, sea level, its biomes): the first
+     * level's, or before there is a level, loaded once (and then handed to the first level, see {@link #createLevelWorld()}), so
+     * a level's configs are read once, not twice.
      *
      * @return The world.
      */
     NeoForgeWorld world()
     {
-        return NeoForgeEngine.get().loadWorld(this.worldName, this.biomes);
+        final NeoForgeWorld level = this.firstLevel;
+        return level != null ? level : NeoForgeEngine.get().loadWorld(this.worldName, this.biomes);
     }
 
     /**
-     * Loads a TerrainControl world of its own for a new level.
+     * Gets a TerrainControl world of its own for a new level: the configs loaded before there was a level, when no level has
+     * them yet, or else loaded again.
      *
      * @return The world.
      */
     NeoForgeWorld createLevelWorld()
     {
-        return NeoForgeEngine.get().createWorld(this.worldName, this.biomes);
+        final NeoForgeWorld loaded = NeoForgeEngine.get().takeLoaded(this.worldName);
+        return loaded != null ? loaded : NeoForgeEngine.get().createWorld(this.worldName, this.biomes);
     }
 
     /**
@@ -90,6 +98,10 @@ public final class TCBiomeSource extends BiomeSource
     void bind(final RandomState randomState, final NeoForgeWorld world)
     {
         this.resolvers.put(randomState, new Resolver(world));
+        if (this.firstLevel == null)
+        {
+            this.firstLevel = world;
+        }
     }
 
     /**

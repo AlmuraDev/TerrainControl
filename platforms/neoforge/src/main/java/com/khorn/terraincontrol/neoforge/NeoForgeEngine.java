@@ -29,6 +29,8 @@ public final class NeoForgeEngine extends TerrainControlEngine
 {
     private final File configsDir;
     private final Map<String, NeoForgeWorld> worlds = new ConcurrentHashMap<>();
+    /** The worlds loaded by loadWorld that a level has taken (takeLoaded) */
+    private final java.util.Set<String> taken = new java.util.HashSet<>();
 
     /**
      * Gets the engine, once TerrainControl has started.
@@ -83,6 +85,23 @@ public final class NeoForgeEngine extends TerrainControlEngine
             TerrainControl.log(LogMarker.INFO, "Loading configs for world \"{}\"", worldName);
             return new NeoForgeWorld(worldName, worldDir, biomes);
         });
+    }
+
+    /**
+     * Takes a world's configs loaded by {@link #loadWorld(String, HolderGetter)} for a level of its own: a level made after its
+     * configs were loaded uses them, instead of reading them again. Only once: the next level loads its own.
+     *
+     * @param name The world's name.
+     * @return The configs loaded; null when they were not loaded (or a level has taken them already).
+     */
+    public NeoForgeWorld takeLoaded(final String name)
+    {
+        synchronized (this.taken)
+        {
+            final NeoForgeWorld world = this.worlds.get(name);
+            // It stays loaded (getWorld finds it), now as the level's
+            return world == null || !this.taken.add(name) ? null : world;
+        }
     }
 
     /**
