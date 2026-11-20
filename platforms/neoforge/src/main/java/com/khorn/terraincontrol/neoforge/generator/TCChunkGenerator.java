@@ -22,6 +22,7 @@ import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.level.levelgen.placement.FeaturePlacer;
 import net.minecraft.world.level.levelgen.placement.PlacedFeature;
 import net.minecraft.world.level.levelgen.LegacyRandomSource;
+import net.minecraft.world.level.NaturalSpawner;
 import net.minecraft.world.level.levelgen.RandomSupport;
 import net.minecraft.world.level.levelgen.WorldgenRandom;
 import net.minecraft.world.level.levelgen.XoroshiroRandomSource;
@@ -414,7 +415,14 @@ public final class TCChunkGenerator extends ChunkGenerator
     @Override
     public void spawnOriginalMobs(final WorldGenRegion worldGenRegion)
     {
-        // TerrainControl's population mobs come with population
+        // A new chunk's animals, as 1.12's population placed them (a few of its biome's creatures, a 0.1 chance at a time): 26.3
+        // does this in its own spawn step, from the chunk's biome (its SpawnCreatures, and the mods' creatures TerrainControl's
+        // biome modifier adds, ModMobs), as its own generators do
+        final ChunkPos center = worldGenRegion.getCenter();
+        final BlockPos sourcePos = center.getWorldPosition().atY(worldGenRegion.getMaxY());
+        final WorldgenRandom random = new WorldgenRandom(new LegacyRandomSource(RandomSupport.generateUniqueSeed()));
+        random.setDecorationSeed(worldGenRegion.getSeed(), center.getMinBlockX(), center.getMinBlockZ());
+        NaturalSpawner.spawnMobsForChunkGeneration(worldGenRegion, sourcePos, center, random);
     }
 
     /**

@@ -608,8 +608,7 @@ public final class NeoForgeWorld implements LocalWorld
     @Override
     public void placePopulationMobs(final LocalBiome biome, final Random random, final ChunkCoordinate chunkCoord)
     {
-        // The spawn lists name 1.12 mobs (Mo' Creatures among them); population mobs come once those have 26.3 mobs
-        warnOnce("mobs", "Population mobs are not ported to 26.3 yet");
+        // On 26.3 a new chunk's animals come in 26.3's own spawn step, after population (TCChunkGenerator.spawnOriginalMobs)
     }
 
     // ----- Blocks -----
