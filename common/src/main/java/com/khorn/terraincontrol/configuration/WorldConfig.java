@@ -135,6 +135,16 @@ public class WorldConfig extends ConfigFile
 
     // Mansions
     public boolean mansionsEnabled;
+    /** The structures newer than 1.12 (26.3's); the biome configs say where */
+    public boolean pillagerOutpostsEnabled;
+    public boolean shipwrecksEnabled;
+    public boolean oceanRuinsEnabled;
+    public boolean buriedTreasureEnabled;
+    public boolean ruinedPortalsEnabled;
+    public boolean trailRuinsEnabled;
+    public boolean abandonedCampsEnabled;
+    public boolean ancientCitiesEnabled;
+    public boolean trialChambersEnabled;
     public int minimumDistanceBetweenMansions;
     public int maximumDistanceBetweenMansions;
 
@@ -443,6 +453,18 @@ public class WorldConfig extends ConfigFile
         this.mansionsEnabled = reader.getSetting(WorldStandardValues.MANSIONS_ENABLED);
         this.minimumDistanceBetweenMansions = reader.getSetting(WorldStandardValues.MINIMUM_DISTANCE_BETWEEN_MANSIONS);
         this.maximumDistanceBetweenMansions = reader.getSetting(WorldStandardValues.MAXIMUM_DISTANCE_BETWEEN_MANSIONS);
+
+        // The structures newer than 1.12: as the world has its rare buildings unless the config says (a world that
+        // left 1.12's buildings out, as the parks, has none of these either)
+        this.pillagerOutpostsEnabled = reader.getSetting(WorldStandardValues.PILLAGER_OUTPOSTS_ENABLED, this.rareBuildingsEnabled);
+        this.shipwrecksEnabled = reader.getSetting(WorldStandardValues.SHIPWRECKS_ENABLED, this.rareBuildingsEnabled);
+        this.oceanRuinsEnabled = reader.getSetting(WorldStandardValues.OCEAN_RUINS_ENABLED, this.rareBuildingsEnabled);
+        this.buriedTreasureEnabled = reader.getSetting(WorldStandardValues.BURIED_TREASURE_ENABLED, this.rareBuildingsEnabled);
+        this.ruinedPortalsEnabled = reader.getSetting(WorldStandardValues.RUINED_PORTALS_ENABLED, this.rareBuildingsEnabled);
+        this.trailRuinsEnabled = reader.getSetting(WorldStandardValues.TRAIL_RUINS_ENABLED, this.rareBuildingsEnabled);
+        this.abandonedCampsEnabled = reader.getSetting(WorldStandardValues.ABANDONED_CAMPS_ENABLED, this.rareBuildingsEnabled);
+        this.ancientCitiesEnabled = reader.getSetting(WorldStandardValues.ANCIENT_CITIES_ENABLED, this.rareBuildingsEnabled);
+        this.trialChambersEnabled = reader.getSetting(WorldStandardValues.TRIAL_CHAMBERS_ENABLED, this.rareBuildingsEnabled);
 
         this.oceanMonumentsEnabled = reader.getSetting(WorldStandardValues.OCEAN_MONUMENTS_ENABLED);
         this.oceanMonumentRandomOffset = reader.getSetting(WorldStandardValues.OCEAN_MONUMENT_RANDOM_OFFSET);
@@ -930,6 +952,21 @@ public class WorldConfig extends ConfigFile
 
         writer.putSetting(WorldStandardValues.MAXIMUM_DISTANCE_BETWEEN_MANSIONS, this.maximumDistanceBetweenMansions,
                 "The maximum distance between the origin of mansions in chunks.");
+
+        // The structures newer than 1.12
+        writer.smallTitle("Structures newer than 1.12",
+                "Each one also needs a biome that allows it (see the biome configs). When a world does not say,",
+                "they are as its RareBuildingsEnabled.");
+
+        writer.putSetting(WorldStandardValues.PILLAGER_OUTPOSTS_ENABLED, this.pillagerOutpostsEnabled, "Whether pillager outposts are enabled.");
+        writer.putSetting(WorldStandardValues.SHIPWRECKS_ENABLED, this.shipwrecksEnabled, "Whether shipwrecks (sunk and beached) are enabled.");
+        writer.putSetting(WorldStandardValues.OCEAN_RUINS_ENABLED, this.oceanRuinsEnabled, "Whether ocean ruins (cold and warm) are enabled.");
+        writer.putSetting(WorldStandardValues.BURIED_TREASURE_ENABLED, this.buriedTreasureEnabled, "Whether buried treasure is enabled (found with the maps of shipwrecks and ocean ruins).");
+        writer.putSetting(WorldStandardValues.RUINED_PORTALS_ENABLED, this.ruinedPortalsEnabled, "Whether ruined portals are enabled.");
+        writer.putSetting(WorldStandardValues.TRAIL_RUINS_ENABLED, this.trailRuinsEnabled, "Whether trail ruins are enabled.");
+        writer.putSetting(WorldStandardValues.ABANDONED_CAMPS_ENABLED, this.abandonedCampsEnabled, "Whether abandoned camps are enabled.");
+        writer.putSetting(WorldStandardValues.ANCIENT_CITIES_ENABLED, this.ancientCitiesEnabled, "Whether ancient cities (deep underground) are enabled.");
+        writer.putSetting(WorldStandardValues.TRIAL_CHAMBERS_ENABLED, this.trialChambersEnabled, "Whether trial chambers (underground) are enabled.");
 
         // Ocean monuments
         writer.smallTitle("Ocean monuments");

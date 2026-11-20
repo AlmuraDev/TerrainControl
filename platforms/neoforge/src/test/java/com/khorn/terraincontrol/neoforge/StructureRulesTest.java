@@ -156,9 +156,10 @@ final class StructureRulesTest
         // Orilla: VillagesEnabled true, MineshaftsEnabled false
         assertTrue(TCStructures.inWorld(orilla, structure("village_plains").unwrapKey().orElseThrow()));
         assertFalse(TCStructures.inWorld(orilla, structure("mineshaft").unwrapKey().orElseThrow()));
-        // 26.3's newer structures never come into TerrainControl's worlds
-        assertFalse(TCStructures.inWorld(orilla, structure("trial_chambers").unwrapKey().orElseThrow()));
-        assertFalse(TCStructures.inWorld(orilla, structure("ruined_portal").unwrapKey().orElseThrow()));
+        // 26.3's newer overworld structures as the world has its rare buildings (RareBuildingsEnabled true); its Nether ones never
+        assertTrue(TCStructures.inWorld(orilla, structure("trial_chambers").unwrapKey().orElseThrow()));
+        assertTrue(TCStructures.inWorld(orilla, structure("ruined_portal").unwrapKey().orElseThrow()));
+        assertFalse(TCStructures.inWorld(orilla, structure("bastion_remnant").unwrapKey().orElseThrow()));
     }
 
     private static JsonObject encoded(final Structure structure)
@@ -181,5 +182,123 @@ final class StructureRulesTest
         // VillageSize 0, and what is not a village: as 26.3 has them
         assertSame(plains.value(), TCStructures.sized(load("Orilla"), plains, REGISTRIES));
         assertSame(structure("mineshaft").value(), TCStructures.sized(load("Tollana"), structure("mineshaft"), REGISTRIES));
+    }
+
+    // ----- The structures newer than 1.12 -----
+
+    private static final String[] NEWER = {"pillager_outpost", "shipwreck", "shipwreck_beached", "ocean_ruin_cold", "ocean_ruin_warm",
+            "buried_treasure", "ruined_portal", "ruined_portal_desert", "ruined_portal_jungle", "ruined_portal_swamp",
+            "ruined_portal_mountain", "ruined_portal_ocean", "trail_ruins", "ancient_city", "trial_chambers", "village_snowy"};
+
+    @Test
+    void newerStructuresAsTheWorldHasRareBuildings()
+    {
+        // Atlantis has its rare buildings, the parks and Zeal left them out (and say nothing of the newer ones)
+        final NeoForgeWorld atlantis = load("Atlantis");
+        final NeoForgeWorld glacier = load("Glacier");
+        for (final String name : NEWER)
+        {
+            final ResourceKey<Structure> key = structure(name).unwrapKey().orElseThrow();
+            if (!name.equals("village_snowy"))
+            {
+                assertTrue(TCStructures.inWorld(atlantis, key), "Atlantis " + name);
+                assertFalse(TCStructures.inWorld(glacier, key), "Glacier " + name);
+            }
+        }
+        assertTrue(TCStructures.inWorld(atlantis, structure("abandoned_camp_forest").unwrapKey().orElseThrow()));
+        assertFalse(TCStructures.inWorld(glacier, structure("abandoned_camp_forest").unwrapKey().orElseThrow()));
+        // 26.3's Nether and End ones never
+        for (final String name : new String[] {"bastion_remnant", "nether_fossil", "end_city", "ruined_portal_nether"})
+        {
+            assertFalse(TCStructures.inWorld(atlantis, structure(name).unwrapKey().orElseThrow()), name);
+        }
+    }
+
+    @Test
+    void everyVariantIsOneOf26_3s()
+    {
+        for (final com.khorn.terraincontrol.configuration.BiomeConfig.AbandonedCampType camp
+                : com.khorn.terraincontrol.configuration.BiomeConfig.AbandonedCampType.values())
+        {
+            if (camp.ordinal() != 0 && camp != com.khorn.terraincontrol.configuration.BiomeConfig.AbandonedCampType.disabled)
+            {
+                structure("abandoned_camp_" + TCStructures.snake(camp.name()));
+            }
+        }
+        for (final com.khorn.terraincontrol.configuration.BiomeConfig.RuinedPortalType portal
+                : com.khorn.terraincontrol.configuration.BiomeConfig.RuinedPortalType.values())
+        {
+            if (portal.ordinal() > 1 && portal != com.khorn.terraincontrol.configuration.BiomeConfig.RuinedPortalType.disabled)
+            {
+                structure("ruined_portal_" + portal.name());
+            }
+        }
+    }
+
+    @Test
+    void undergroundStructuresAsHighAboveTheBottomAsIn26_3()
+    {
+        final NeoForgeWorld atlantis = load("Atlantis");
+        final var ops = net.minecraft.resources.RegistryOps.create(com.mojang.serialization.JsonOps.INSTANCE, REGISTRIES);
+        final String city = Structure.DIRECT_CODEC.encodeStart(ops, TCStructures.sized(atlantis, structure("ancient_city"), REGISTRIES))
+                .getOrThrow().getAsJsonObject().get("start_height").toString();
+        final String chambers = Structure.DIRECT_CODEC.encodeStart(ops, TCStructures.sized(atlantis, structure("trial_chambers"), REGISTRIES))
+                .getOrThrow().getAsJsonObject().get("start_height").toString();
+        System.out.println("ancient_city " + city + ", trial_chambers " + chambers);
+        // 26.3: -27, and -40 to -20, its bottom at -64
+        assertTrue(city.contains("\"above_bottom\":37") && !city.contains("absolute"), city);
+        assertTrue(chambers.contains("\"above_bottom\":24") && chambers.contains("\"above_bottom\":44") && !chambers.contains("absolute"), chambers);
+    }
+
+    private static boolean allows(final NeoForgeWorld world, final BiomeConfig config, final String structure, final TCStructures.Ground ground)
+    {
+        for (final LocalBiome biome : world.getConfigs().getBiomeArray())
+        {
+            if (biome != null && biome.getBiomeConfig() == config)
+            {
+                return TCStructures.inBiome(world, structure(structure), ((NeoForgeBiome) biome).getSavedBiome(), () -> ground);
+            }
+        }
+        throw new IllegalArgumentException(config.getName());
+    }
+
+    @Test
+    void theGroundDecidesWhereAutoIs()
+    {
+        final NeoForgeWorld atlantis = load("Atlantis");
+        final BiomeConfig plains = atlantis.getBiomeByName("Plains").getBiomeConfig();
+        assertEquals(BiomeConfig.StructureRule.auto, plains.pillagerOutposts);
+        final TCStructures.Ground sea = new TCStructures.Ground(64, 40, 63, false);
+        final TCStructures.Ground beach = new TCStructures.Ground(65, 65, 63, true);
+        final TCStructures.Ground land = new TCStructures.Ground(72, 72, 63, false);
+        final TCStructures.Ground mountain = new TCStructures.Ground(140, 140, 63, false);
+        final TCStructures.Ground pond = new TCStructures.Ground(64, 60, 63, false);
+        assertTrue(allows(atlantis, plains, "shipwreck", sea));
+        assertFalse(allows(atlantis, plains, "shipwreck", pond));
+        assertFalse(allows(atlantis, plains, "shipwreck", land));
+        assertTrue(allows(atlantis, plains, "shipwreck_beached", beach));
+        assertTrue(allows(atlantis, plains, "buried_treasure", beach));
+        assertFalse(allows(atlantis, plains, "buried_treasure", land));
+        assertTrue(allows(atlantis, plains, "ocean_ruin_cold", sea));
+        assertFalse(allows(atlantis, plains, "ocean_ruin_warm", sea));
+        assertTrue(allows(atlantis, plains, "pillager_outpost", land));
+        assertFalse(allows(atlantis, plains, "pillager_outpost", sea));
+        assertFalse(allows(atlantis, plains, "pillager_outpost", beach));
+        assertTrue(allows(atlantis, plains, "ruined_portal", land));
+        assertTrue(allows(atlantis, plains, "ruined_portal_ocean", sea));
+        assertTrue(allows(atlantis, plains, "ruined_portal_mountain", mountain));
+        assertFalse(allows(atlantis, plains, "ruined_portal", sea));
+        assertTrue(allows(atlantis, plains, "ancient_city", mountain));
+        assertFalse(allows(atlantis, plains, "ancient_city", land));
+        assertTrue(allows(atlantis, plains, "trial_chambers", land));
+        assertFalse(allows(atlantis, plains, "trial_chambers", sea));
+        // Without the ground, none of them
+        assertFalse(allows(atlantis, plains, "pillager_outpost", null));
+        // A biome's say over the ground's
+        plains.pillagerOutposts = BiomeConfig.StructureRule.disabled;
+        assertFalse(allows(atlantis, plains, "pillager_outpost", land));
+        plains.shipwreckType = BiomeConfig.ShipwreckType.beached;
+        assertTrue(allows(atlantis, plains, "shipwreck_beached", land));
+        assertFalse(allows(atlantis, plains, "shipwreck", sea));
     }
 }

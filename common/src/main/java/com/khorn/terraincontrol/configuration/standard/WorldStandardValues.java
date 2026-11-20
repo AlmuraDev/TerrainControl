@@ -118,6 +118,15 @@ public class WorldStandardValues extends Settings
             RARE_BUILDINGS_ENABLED = booleanSetting("RareBuildingsEnabled", true),
             OCEAN_MONUMENTS_ENABLED = booleanSetting("OceanMonumentsEnabled", true),
             MANSIONS_ENABLED = booleanSetting("MansionsEnabled", true),
+            PILLAGER_OUTPOSTS_ENABLED = booleanSetting("PillagerOutpostsEnabled", true),
+            SHIPWRECKS_ENABLED = booleanSetting("ShipwrecksEnabled", true),
+            OCEAN_RUINS_ENABLED = booleanSetting("OceanRuinsEnabled", true),
+            BURIED_TREASURE_ENABLED = booleanSetting("BuriedTreasureEnabled", true),
+            RUINED_PORTALS_ENABLED = booleanSetting("RuinedPortalsEnabled", true),
+            TRAIL_RUINS_ENABLED = booleanSetting("TrailRuinsEnabled", true),
+            ABANDONED_CAMPS_ENABLED = booleanSetting("AbandonedCampsEnabled", true),
+            ANCIENT_CITIES_ENABLED = booleanSetting("AncientCitiesEnabled", true),
+            TRIAL_CHAMBERS_ENABLED = booleanSetting("TrialChambersEnabled", true),
             POPULATE_USING_SAVED_BIOMES = booleanSetting("PopulateUsingSavedBiomes", false);
 
     public static final Setting<LocalMaterialData>

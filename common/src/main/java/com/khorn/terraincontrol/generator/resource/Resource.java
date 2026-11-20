@@ -195,4 +195,14 @@ public abstract class Resource extends ConfigFunction<BiomeConfig> implements Co
         }
     }
 
+
+    /**
+     * Gets how many times a chunk this resource tries to spawn.
+     *
+     * @return The frequency.
+     */
+    public int getFrequency()
+    {
+        return this.frequency;
+    }
 }

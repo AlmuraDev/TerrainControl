@@ -122,7 +122,9 @@ public class BiomeConfig extends ConfigFile {
         wood,
         sandstone,
         taiga,
-        savanna
+        savanna,
+        /** 26.3's snowy village (1.12 had none) */
+        snowy
     }
 
     public VillageType villageType;
@@ -147,6 +149,80 @@ public class BiomeConfig extends ConfigFile {
     }
 
     public RareBuildingType rareBuildingType;
+
+    // The structures newer than 1.12 (26.3's). "auto" lets the ground where one would start decide (the sea, a beach, dry land,
+    // a mountain, the biome's warmth); any other value is the biome's say, whatever the ground.
+
+    /** For a structure of one kind: as the ground decides, always, or never */
+    public enum StructureRule
+    {
+        auto,
+        enabled,
+        disabled
+    }
+
+    public enum ShipwreckType
+    {
+        auto,
+        ocean,
+        beached,
+        disabled
+    }
+
+    public enum OceanRuinType
+    {
+        auto,
+        cold,
+        warm,
+        disabled
+    }
+
+    public enum RuinedPortalType
+    {
+        auto,
+        standard,
+        desert,
+        jungle,
+        swamp,
+        mountain,
+        ocean,
+        disabled
+    }
+
+    /** 26.3's abandoned camps: one kind for each of its forests */
+    public enum AbandonedCampType
+    {
+        auto,
+        bambooJungle,
+        birchForest,
+        cherryGrove,
+        dappledForest,
+        flowerForest,
+        forest,
+        meadow,
+        oldGrowthBirchForest,
+        oldGrowthPineTaiga,
+        oldGrowthSpruceTaiga,
+        paleGarden,
+        savanna,
+        snowyTaiga,
+        sparseJungle,
+        swamp,
+        taiga,
+        windsweptForest,
+        woodedBadlands,
+        disabled
+    }
+
+    public StructureRule pillagerOutposts;
+    public ShipwreckType shipwreckType;
+    public OceanRuinType oceanRuinType;
+    public StructureRule buriedTreasure;
+    public RuinedPortalType ruinedPortalType;
+    public StructureRule trailRuins;
+    public AbandonedCampType abandonedCampType;
+    public StructureRule ancientCities;
+    public StructureRule trialChambers;
 
     public StandardBiomeTemplate defaultSettings;
     public WorldConfig worldConfig;
@@ -312,6 +388,15 @@ public class BiomeConfig extends ConfigFile {
         this.mineshaftsRarity = settings.getSetting(BiomeStandardValues.MINESHAFT_RARITY);
         this.mineshaftType = settings.getSetting(BiomeStandardValues.MINESHAFT_TYPE, defaultSettings.defaultMineshaftType);
         this.rareBuildingType = settings.getSetting(BiomeStandardValues.RARE_BUILDING_TYPE, defaultSettings.defaultRareBuildingType);
+        this.pillagerOutposts = settings.getSetting(BiomeStandardValues.PILLAGER_OUTPOSTS);
+        this.shipwreckType = settings.getSetting(BiomeStandardValues.SHIPWRECK_TYPE);
+        this.oceanRuinType = settings.getSetting(BiomeStandardValues.OCEAN_RUIN_TYPE);
+        this.buriedTreasure = settings.getSetting(BiomeStandardValues.BURIED_TREASURE);
+        this.ruinedPortalType = settings.getSetting(BiomeStandardValues.RUINED_PORTAL_TYPE);
+        this.trailRuins = settings.getSetting(BiomeStandardValues.TRAIL_RUINS);
+        this.abandonedCampType = settings.getSetting(BiomeStandardValues.ABANDONED_CAMP_TYPE);
+        this.ancientCities = settings.getSetting(BiomeStandardValues.ANCIENT_CITIES);
+        this.trialChambers = settings.getSetting(BiomeStandardValues.TRIAL_CHAMBERS);
 
         // Note: SpawnList changes now affect Vanilla Biomes!
         try {
@@ -749,7 +834,7 @@ public class BiomeConfig extends ConfigFile {
                 "Whether Woodland Mansions are enabled in this biome.");
 
         writer.putSetting(BiomeStandardValues.VILLAGE_TYPE, villageType,
-                "The village type in this biome. Can be wood, sandstone, taiga, savanna or disabled.");
+                "The village type in this biome. Can be wood, sandstone, taiga, savanna, snowy or disabled.");
 
         writer.putSetting(BiomeStandardValues.MINESHAFT_TYPE, mineshaftType,
                 "The mineshaft type in this biome. Can be normal, mesa or disabled.");
@@ -761,6 +846,33 @@ public class BiomeConfig extends ConfigFile {
 
         writer.putSetting(BiomeStandardValues.RARE_BUILDING_TYPE, rareBuildingType,
                 "The type of the aboveground rare building in this biome. Can be desertPyramid, jungleTemple, swampHut, igloo or disabled.");
+
+        writer.smallTitle("Structures newer than 1.12",
+                "Each can be auto: the ground where it would start decides (the sea, a beach, dry land, a mountain,",
+                "this biome's temperature and wetness), as 26.3 decides by its own biomes. Any other value is",
+                "this biome's say, whatever the ground. The world config turns each one on or off for the world.");
+
+        writer.putSetting(BiomeStandardValues.PILLAGER_OUTPOSTS, pillagerOutposts,
+                "Pillager outposts: auto (on dry land), enabled or disabled.");
+        writer.putSetting(BiomeStandardValues.SHIPWRECK_TYPE, shipwreckType,
+                "Shipwrecks: auto (sunk in the sea, beached on beaches), ocean, beached or disabled.");
+        writer.putSetting(BiomeStandardValues.OCEAN_RUIN_TYPE, oceanRuinType,
+                "Ocean ruins: auto (in the sea; warm where this biome is warm, otherwise cold), cold, warm or disabled.");
+        writer.putSetting(BiomeStandardValues.BURIED_TREASURE, buriedTreasure,
+                "Buried treasure: auto (on beaches), enabled or disabled.");
+        writer.putSetting(BiomeStandardValues.RUINED_PORTAL_TYPE, ruinedPortalType,
+                "Ruined portals: auto (by the ground and this biome), standard, desert, jungle, swamp, mountain, ocean or disabled.");
+        writer.putSetting(BiomeStandardValues.TRAIL_RUINS, trailRuins,
+                "Trail ruins: auto (in forests on dry land), enabled or disabled.");
+        writer.putSetting(BiomeStandardValues.ABANDONED_CAMP_TYPE, abandonedCampType,
+                "Abandoned camps: auto (in forests on dry land, by this biome's temperature and wetness), disabled, or one of",
+                "bambooJungle, birchForest, cherryGrove, dappledForest, flowerForest, forest, meadow, oldGrowthBirchForest,",
+                "oldGrowthPineTaiga, oldGrowthSpruceTaiga, paleGarden, savanna, snowyTaiga, sparseJungle, swamp, taiga,",
+                "windsweptForest or woodedBadlands.");
+        writer.putSetting(BiomeStandardValues.ANCIENT_CITIES, ancientCities,
+                "Ancient cities, deep underground: auto (under high dry land), enabled or disabled.");
+        writer.putSetting(BiomeStandardValues.TRIAL_CHAMBERS, trialChambers,
+                "Trial chambers, underground: auto (not under the sea), enabled or disabled.");
 
         if (defaultSettings.isCustomBiome)
         {

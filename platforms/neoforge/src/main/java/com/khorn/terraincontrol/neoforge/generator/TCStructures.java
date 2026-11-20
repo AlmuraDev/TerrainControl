@@ -23,18 +23,28 @@ import net.minecraft.world.level.levelgen.structure.placement.RandomSpreadStruct
 import net.minecraft.world.level.levelgen.structure.placement.RandomSpreadType;
 import net.minecraft.world.level.levelgen.structure.placement.StructurePlacement;
 
+import com.khorn.terraincontrol.generator.resource.TreeGen;
+
 import java.util.Map;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
+import java.util.regex.Pattern;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Which of 26.3's structures a TerrainControl world has, as 1.12's TerrainControl decided it.
  *
- * <p>A world has 1.12's structures only (villages, mineshafts, strongholds, temples, swamp huts, igloos, ocean monuments, mansions,
- * nether fortresses), each as its WorldConfig enables them; 26.3's newer ones (trial chambers, ruined portals...) do not come into
- * TerrainControl's worlds. Where one may start is the biome config's say (VillageType, MineshaftType, RareBuildingType), not 26.3's
+ * <p>A world has 1.12's structures (villages, mineshafts, strongholds, temples, swamp huts, igloos, ocean monuments, mansions,
+ * nether fortresses) and 26.3's newer overworld ones (pillager outposts, shipwrecks, ocean ruins, buried treasure, ruined portals,
+ * trail ruins, abandoned camps, ancient cities, trial chambers, snowy villages), each as its WorldConfig enables them. 26.3's Nether
+ * and End ones (bastions, nether fossils, end cities) do not come into TerrainControl's worlds. Where one may start is the biome config's say (VillageType, MineshaftType, RareBuildingType), not 26.3's
  * biome tags, which TerrainControl's own biomes are not in (strongholds where StrongholdsEnabled, mineshafts by MineshaftRarity);
  * ocean monuments, mansions and fortresses follow 26.3's biome tags, as 1.12 followed its vanilla biomes for them.</p>
+ *
+ * <p>Where a newer one may start is its biome config's say too (PillagerOutposts, ShipwreckType, RuinedPortalType...), and
+ * "auto", the default, lets the ground where it would start decide, as 26.3 decides by its own biomes: {@link Ground}. Ancient
+ * cities and trial chambers are as high above the world's bottom as in 26.3's overworld ({@link #sized}).</p>
  *
  * <p>How far apart they are is the WorldConfig's (VillageDistance, Minimum/MaximumDistanceBetweenRareBuildings and ...Mansions,
  * OceanMonumentGridSize and RandomOffset, StrongholdDistance, Count and Spread), spaced as 1.12 spaced them: {@link #spaced}.</p>
@@ -59,9 +69,23 @@ public final class TCStructures
     public static boolean inWorld(final NeoForgeWorld world, final ResourceKey<Structure> structure)
     {
         final WorldConfig config = world.getConfigs().getWorldConfig();
-        return switch (name(structure))
+        final String name = name(structure);
+        if (name.startsWith(CAMP))
         {
-            case "village_plains", "village_desert", "village_taiga", "village_savanna" -> config.villagesEnabled;
+            return config.abandonedCampsEnabled;
+        }
+        return switch (name)
+        {
+            case "village_plains", "village_desert", "village_taiga", "village_savanna", "village_snowy" -> config.villagesEnabled;
+            case "pillager_outpost" -> config.pillagerOutpostsEnabled;
+            case "shipwreck", "shipwreck_beached" -> config.shipwrecksEnabled;
+            case "ocean_ruin_cold", "ocean_ruin_warm" -> config.oceanRuinsEnabled;
+            case "buried_treasure" -> config.buriedTreasureEnabled;
+            case "ruined_portal", "ruined_portal_desert", "ruined_portal_jungle", "ruined_portal_swamp", "ruined_portal_mountain",
+                    "ruined_portal_ocean" -> config.ruinedPortalsEnabled;
+            case "trail_ruins" -> config.trailRuinsEnabled;
+            case "ancient_city" -> config.ancientCitiesEnabled;
+            case "trial_chambers" -> config.trialChambersEnabled;
             case "desert_pyramid", "jungle_pyramid", "swamp_hut", "igloo" -> config.rareBuildingsEnabled;
             case "mineshaft", "mineshaft_mesa" -> config.mineshaftsEnabled;
             case "stronghold" -> config.strongholdsEnabled;
@@ -82,14 +106,56 @@ public final class TCStructures
      */
     public static boolean inBiome(final NeoForgeWorld world, final Holder<Structure> structure, final Holder<Biome> biome)
     {
+        return inBiome(world, structure, biome, () -> null);
+    }
+
+    /**
+     * Gets whether a structure may start in a biome of a world, on the ground where it would start.
+     *
+     * @param world     The world.
+     * @param structure The structure.
+     * @param biome     The 26.3 biome where it would start.
+     * @param ground    The ground there, asked for only by the newer structures left to it ("auto"); null when unknown (they do
+     *                  not start then).
+     * @return Whether it may.
+     */
+    public static boolean inBiome(final NeoForgeWorld world, final Holder<Structure> structure, final Holder<Biome> biome,
+            final Supplier<Ground> ground)
+    {
         final String name = structure.unwrapKey().map(TCStructures::name).orElse("");
         final BiomeConfig config = world.getBiomeConfig(biome);
         if (config == null)
         {
             return false;
         }
+        if (name.startsWith(CAMP))
+        {
+            final BiomeConfig.AbandonedCampType camp = camp(config, ground);
+            return camp != null && name.equals(CAMP + snake(camp.name()));
+        }
+        if (name.startsWith("ruined_portal"))
+        {
+            final BiomeConfig.RuinedPortalType portal = portal(config, ground);
+            return portal != null && name.equals(portal == BiomeConfig.RuinedPortalType.standard ? "ruined_portal" : "ruined_portal_" + portal.name());
+        }
         return switch (name)
         {
+            case "village_snowy" -> config.villageType == BiomeConfig.VillageType.snowy;
+            case "pillager_outpost" -> rule(config.pillagerOutposts, ground, g -> g.dry() && !g.beach());
+            case "shipwreck" -> config.shipwreckType == BiomeConfig.ShipwreckType.ocean
+                    || config.shipwreckType == BiomeConfig.ShipwreckType.auto && is(ground, Ground::sea);
+            case "shipwreck_beached" -> config.shipwreckType == BiomeConfig.ShipwreckType.beached
+                    || config.shipwreckType == BiomeConfig.ShipwreckType.auto && is(ground, Ground::beach);
+            case "ocean_ruin_cold" -> config.oceanRuinType == BiomeConfig.OceanRuinType.cold
+                    || config.oceanRuinType == BiomeConfig.OceanRuinType.auto && !warm(config) && is(ground, Ground::sea);
+            case "ocean_ruin_warm" -> config.oceanRuinType == BiomeConfig.OceanRuinType.warm
+                    || config.oceanRuinType == BiomeConfig.OceanRuinType.auto && warm(config) && is(ground, Ground::sea);
+            case "buried_treasure" -> rule(config.buriedTreasure, ground, Ground::beach);
+            case "trail_ruins" -> rule(config.trailRuins, ground, g -> g.dry() && forested(config));
+            // Under high ground (26.3's are under its mountains), so the city stays in the rock
+            case "ancient_city" -> rule(config.ancientCities, ground, g -> g.dry() && g.surface() >= g.seaLevel() + 30);
+            // Not under the sea, which would flood them
+            case "trial_chambers" -> rule(config.trialChambers, ground, g -> g.floor() >= g.seaLevel() - 8);
             case "village_plains" -> config.villageType == BiomeConfig.VillageType.wood;
             case "village_desert" -> config.villageType == BiomeConfig.VillageType.sandstone;
             case "village_taiga" -> config.villageType == BiomeConfig.VillageType.taiga;
@@ -209,7 +275,9 @@ public final class TCStructures
     {
         final int size = world.getConfigs().getWorldConfig().villageSize;
         final String name = structure.unwrapKey().map(TCStructures::name).orElse("");
-        if (size <= 0 || !name.startsWith("village_") || !(structure.value() instanceof JigsawStructure))
+        final boolean village = size > 0 && name.startsWith("village_");
+        final boolean underground = name.equals("ancient_city") || name.equals("trial_chambers");
+        if (!village && !underground || !(structure.value() instanceof JigsawStructure))
         {
             return structure.value();
         }
@@ -218,7 +286,8 @@ public final class TCStructures
         {
             sized = SIZED.computeIfAbsent(registries, r -> new ConcurrentHashMap<>());
         }
-        return sized.computeIfAbsent(world.getName() + "/" + name, key -> resize(structure.value(), size, registries));
+        return sized.computeIfAbsent(world.getName() + "/" + name,
+                key -> village ? resize(structure.value(), size, registries) : lower(structure.value(), registries));
     }
 
     /**
@@ -253,9 +322,260 @@ public final class TCStructures
         return Structure.DIRECT_CODEC.parse(ops, json).result().orElse(village);
     }
 
+    /** How far below y 0 26.3's overworld goes, which its underground structures' heights count from */
+    private static final int OVERWORLD_MIN_Y = -64;
+
+    /**
+     * Gets a copy of an underground structure (an ancient city, trial chambers) as high above the world's bottom as in 26.3's
+     * overworld: 26.3 places them at fixed heights below y 0 (an ancient city at -27, 37 above the bottom), and TerrainControl's
+     * worlds start at y 0.
+     *
+     * @param structure  The structure.
+     * @param registries The server's registries.
+     * @return The copy; the structure itself when it could not be copied.
+     */
+    static Structure lower(final Structure structure, final HolderLookup.Provider registries)
+    {
+        final RegistryOps<JsonElement> ops = RegistryOps.create(JsonOps.INSTANCE, registries);
+        final JsonElement encoded = Structure.DIRECT_CODEC.encodeStart(ops, structure).result().orElse(null);
+        if (!(encoded instanceof final JsonObject json) || !json.has("start_height"))
+        {
+            return structure;
+        }
+        json.add("start_height", aboveBottom(json.get("start_height")));
+        return Structure.DIRECT_CODEC.parse(ops, json).result().orElse(structure);
+    }
+
+    /** A height provider with each absolute height as that height above 26.3's overworld bottom */
+    private static JsonElement aboveBottom(final JsonElement element)
+    {
+        if (element instanceof final JsonObject object)
+        {
+            if (object.size() == 1 && object.has("absolute"))
+            {
+                final JsonObject anchor = new JsonObject();
+                anchor.addProperty("above_bottom", object.get("absolute").getAsInt() - OVERWORLD_MIN_Y);
+                return anchor;
+            }
+            final JsonObject copy = new JsonObject();
+            object.entrySet().forEach(entry -> copy.add(entry.getKey(), aboveBottom(entry.getValue())));
+            return copy;
+        }
+        return element;
+    }
+
     private static int depth(final JsonObject json)
     {
         return json.has("size") ? json.get("size").getAsInt() : 6;
+    }
+
+    private static final String CAMP = "abandoned_camp_";
+    private static final Pattern FORESTED = Pattern.compile(
+            "forest|wood|wald|taiga|jungle|grove|pine|birch|redwood|cedar|spruce|oak|tree|timber|rain|urwald|bamboo|cherry",
+            Pattern.CASE_INSENSITIVE);
+
+    /**
+     * The ground where a structure would start (the middle of its chunk), for the newer structures to go where 26.3's biomes would
+     * have them: sunk ones in the sea, beached ones on beaches, the rest on dry land.
+     *
+     * @param surface  The first air above the column (water counts as ground).
+     * @param floor    The first air or water above its solid ground.
+     * @param seaLevel The world's sea level.
+     * @param sandy    Whether its top solid block is sand or gravel.
+     */
+    public record Ground(int surface, int floor, int seaLevel, boolean sandy)
+    {
+        /** How deep the water over it is */
+        int waterDepth()
+        {
+            return Math.max(0, this.surface - this.floor);
+        }
+
+        /** The open sea: deep water well under the sea level (not a pond) */
+        boolean sea()
+        {
+            return waterDepth() >= 10 && this.floor <= this.seaLevel - 10;
+        }
+
+        /** Dry land */
+        boolean dry()
+        {
+            return waterDepth() == 0;
+        }
+
+        /** A beach: sand or gravel at the sea level, dry or just awash */
+        boolean beach()
+        {
+            return this.sandy && waterDepth() <= 2 && this.floor >= this.seaLevel - 2 && this.floor <= this.seaLevel + 4;
+        }
+
+        /** High land */
+        boolean mountain()
+        {
+            return dry() && this.surface >= this.seaLevel + 50;
+        }
+    }
+
+    private static boolean is(final Supplier<Ground> ground, final Predicate<Ground> test)
+    {
+        final Ground g = ground.get();
+        return g != null && test.test(g);
+    }
+
+    private static boolean rule(final BiomeConfig.StructureRule rule, final Supplier<Ground> ground, final Predicate<Ground> auto)
+    {
+        return rule == BiomeConfig.StructureRule.enabled || rule == BiomeConfig.StructureRule.auto && is(ground, auto);
+    }
+
+    private static boolean named(final BiomeConfig config, final String pattern)
+    {
+        return Pattern.compile(pattern, Pattern.CASE_INSENSITIVE).matcher(config.getName()).find();
+    }
+
+    /** Warm water: a hot biome, or one called tropical (the oceans of the configs are all as warm as 26.3s, 0.5) */
+    static boolean warm(final BiomeConfig config)
+    {
+        return config.biomeTemperature >= 1.0F || named(config, "tropic|warm|caribbean|seychelles");
+    }
+
+    /** A forest: trees of its own (Tree(...)), or a forest's name (Almura's forests grow their trees as custom objects) */
+    static boolean forested(final BiomeConfig config)
+    {
+        for (final Object resource : config.resourceSequence)
+        {
+            if (resource instanceof final TreeGen tree && tree.getFrequency() >= 2)
+            {
+                return true;
+            }
+        }
+        return FORESTED.matcher(config.getName()).find();
+    }
+
+    private static boolean jungle(final BiomeConfig config)
+    {
+        return named(config, "jungle|rainforest|rain forest|urwald|bamboo") || config.biomeTemperature >= 0.95F && config.biomeWetness >= 0.85F;
+    }
+
+    private static boolean swamp(final BiomeConfig config)
+    {
+        return named(config, "swamp|marsh|bog|fen|mangrove");
+    }
+
+    private static boolean desert(final BiomeConfig config, final Ground ground)
+    {
+        return named(config, "desert|dune|sand") || ground.sandy() && config.biomeWetness <= 0.2F;
+    }
+
+    /** The ruined portal a biome has on its ground; null for none */
+    static BiomeConfig.RuinedPortalType portal(final BiomeConfig config, final Supplier<Ground> ground)
+    {
+        if (config.ruinedPortalType != BiomeConfig.RuinedPortalType.auto)
+        {
+            return config.ruinedPortalType == BiomeConfig.RuinedPortalType.disabled ? null : config.ruinedPortalType;
+        }
+        final Ground g = ground.get();
+        if (g == null)
+        {
+            return null;
+        }
+        if (g.sea())
+        {
+            return BiomeConfig.RuinedPortalType.ocean;
+        }
+        if (g.mountain() || named(config, "mesa|badland"))
+        {
+            return BiomeConfig.RuinedPortalType.mountain;
+        }
+        if (jungle(config))
+        {
+            return BiomeConfig.RuinedPortalType.jungle;
+        }
+        if (swamp(config))
+        {
+            return BiomeConfig.RuinedPortalType.swamp;
+        }
+        if (desert(config, g))
+        {
+            return BiomeConfig.RuinedPortalType.desert;
+        }
+        return BiomeConfig.RuinedPortalType.standard;
+    }
+
+    /** The abandoned camp a biome has on its ground, by its name and climate; null for none */
+    static BiomeConfig.AbandonedCampType camp(final BiomeConfig config, final Supplier<Ground> ground)
+    {
+        if (config.abandonedCampType != BiomeConfig.AbandonedCampType.auto)
+        {
+            return config.abandonedCampType == BiomeConfig.AbandonedCampType.disabled ? null : config.abandonedCampType;
+        }
+        final Ground g = ground.get();
+        if (g == null || !g.dry() || !forested(config))
+        {
+            return null;
+        }
+        if (config.biomeTemperature < 0.15F)
+        {
+            return BiomeConfig.AbandonedCampType.snowyTaiga;
+        }
+        if (named(config, "birch"))
+        {
+            return BiomeConfig.AbandonedCampType.birchForest;
+        }
+        if (named(config, "cherry"))
+        {
+            return BiomeConfig.AbandonedCampType.cherryGrove;
+        }
+        if (named(config, "flower"))
+        {
+            return BiomeConfig.AbandonedCampType.flowerForest;
+        }
+        if (named(config, "pale|roofed|dark"))
+        {
+            return BiomeConfig.AbandonedCampType.paleGarden;
+        }
+        if (named(config, "redwood|mega|pine"))
+        {
+            return BiomeConfig.AbandonedCampType.oldGrowthPineTaiga;
+        }
+        if (named(config, "spruce"))
+        {
+            return BiomeConfig.AbandonedCampType.oldGrowthSpruceTaiga;
+        }
+        if (named(config, "bamboo"))
+        {
+            return BiomeConfig.AbandonedCampType.bambooJungle;
+        }
+        if (jungle(config))
+        {
+            return BiomeConfig.AbandonedCampType.sparseJungle;
+        }
+        if (swamp(config))
+        {
+            return BiomeConfig.AbandonedCampType.swamp;
+        }
+        if (named(config, "savanna") || config.biomeTemperature >= 1.2F && config.biomeWetness <= 0.3F)
+        {
+            return BiomeConfig.AbandonedCampType.savanna;
+        }
+        if (named(config, "mesa|badland"))
+        {
+            return BiomeConfig.AbandonedCampType.woodedBadlands;
+        }
+        if (named(config, "taiga|cedar") || config.biomeTemperature < 0.4F)
+        {
+            return BiomeConfig.AbandonedCampType.taiga;
+        }
+        if (g.mountain() || named(config, "extreme|windswept|hills"))
+        {
+            return BiomeConfig.AbandonedCampType.windsweptForest;
+        }
+        return BiomeConfig.AbandonedCampType.forest;
+    }
+
+    /** "bambooJungle" as 26.3 names it: "bamboo_jungle" */
+    public static String snake(final String name)
+    {
+        return name.replaceAll("([a-z])([A-Z])", "$1_$2").toLowerCase(java.util.Locale.ROOT);
     }
 
     private TCStructures()

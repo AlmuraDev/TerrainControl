@@ -222,6 +222,15 @@ public final class TCChunkGenerator extends ChunkGenerator
         final ChunkPos sourceChunkPos = centerChunk.getPos();
         this.source.forLevel(state.randomState(), () -> {
             final Climate.Sampler climateSampler = state.randomState().createClimateSampler(SamplerContext.builder().enableCaches().build());
+            // The ground of the chunk, for the newer structures (TCStructures.Ground): measured once, when one first asks
+            final TCStructures.Ground[] ground = new TCStructures.Ground[1];
+            final java.util.function.Supplier<TCStructures.Ground> groundHere = () -> {
+                if (ground[0] == null)
+                {
+                    ground[0] = ground(world, sourceChunkPos, centerChunk, state.randomState());
+                }
+                return ground[0];
+            };
             for (final Holder<StructureSet> set : state.possibleStructureSets())
             {
                 final StructurePlacement placement = set.value().placement();
@@ -267,7 +276,7 @@ public final class TCChunkGenerator extends ChunkGenerator
                     final StructureStart laidOut = sized.generate(selected.structure(), level, registryAccess, this, this.source,
                             climateSampler, state.randomState(), structureTemplateManager, state.getLevelSeed(), sourceChunkPos,
                             previous != null ? previous.getReferences() : 0, centerChunk,
-                            biome -> TCStructures.inBiome(world, selected.structure(), biome) && (!TCStructures.isMineshaft(selected.structure())
+                            biome -> TCStructures.inBiome(world, selected.structure(), biome, groundHere) && (!TCStructures.isMineshaft(selected.structure())
                                     || TCStructures.mineshaftRoll(world, state.getLevelSeed(), sourceChunkPos, world.getBiomeConfig(biome))));
                     final StructureStart start = sized == structure || !laidOut.isValid() ? laidOut
                             : new StructureStart(structure, laidOut.getChunkPos(), laidOut.getReferences(), new PiecesContainer(laidOut.getPieces()));
@@ -281,6 +290,27 @@ public final class TCChunkGenerator extends ChunkGenerator
                 }
             }
         });
+    }
+
+    /**
+     * Gets the ground in the middle of a chunk, from TerrainControl's terrain there (made for the asking, as for heights).
+     *
+     * @param world          The level's TerrainControl world.
+     * @param chunk          The chunk.
+     * @param heightAccessor The level's heights.
+     * @param randomState    The level's RandomState.
+     * @return The ground.
+     */
+    private TCStructures.Ground ground(final NeoForgeWorld world, final ChunkPos chunk, final LevelHeightAccessor heightAccessor,
+            final RandomState randomState)
+    {
+        final int x = chunk.getMiddleBlockX();
+        final int z = chunk.getMiddleBlockZ();
+        final int surface = getBaseHeight(x, z, Heightmap.Types.WORLD_SURFACE_WG, heightAccessor, randomState);
+        final int floor = getBaseHeight(x, z, Heightmap.Types.OCEAN_FLOOR_WG, heightAccessor, randomState);
+        final BlockState top = getBaseColumn(x, z, heightAccessor, randomState).getBlock(floor - 1);
+        final boolean sandy = top.is(Blocks.SAND) || top.is(Blocks.RED_SAND) || top.is(Blocks.GRAVEL);
+        return new TCStructures.Ground(surface, floor, world.getConfigs().getWorldConfig().waterLevelMax, sandy);
     }
 
     /**

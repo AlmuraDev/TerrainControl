@@ -4,6 +4,7 @@ import static com.khorn.terraincontrol.TerrainControl.WORLD_DEPTH;
 import static com.khorn.terraincontrol.TerrainControl.WORLD_HEIGHT;
 
 import com.khorn.terraincontrol.LocalMaterialData;
+import com.khorn.terraincontrol.configuration.BiomeConfig;
 import com.khorn.terraincontrol.configuration.BiomeConfig.MineshaftType;
 import com.khorn.terraincontrol.configuration.BiomeConfig.RareBuildingType;
 import com.khorn.terraincontrol.configuration.BiomeConfig.VillageType;
@@ -105,6 +106,17 @@ public class BiomeStandardValues extends Settings
     public static final Setting<VillageType> VILLAGE_TYPE = enumSetting("VillageType", VillageType.disabled);
     public static final Setting<MineshaftType> MINESHAFT_TYPE = enumSetting("MineshaftType", MineshaftType.normal);
     public static final Setting<RareBuildingType> RARE_BUILDING_TYPE = enumSetting("RareBuildingType", RareBuildingType.disabled);
+
+    // The structures newer than 1.12, each as the ground decides unless a biome says
+    public static final Setting<BiomeConfig.StructureRule> PILLAGER_OUTPOSTS = enumSetting("PillagerOutposts", BiomeConfig.StructureRule.auto);
+    public static final Setting<BiomeConfig.ShipwreckType> SHIPWRECK_TYPE = enumSetting("ShipwreckType", BiomeConfig.ShipwreckType.auto);
+    public static final Setting<BiomeConfig.OceanRuinType> OCEAN_RUIN_TYPE = enumSetting("OceanRuinType", BiomeConfig.OceanRuinType.auto);
+    public static final Setting<BiomeConfig.StructureRule> BURIED_TREASURE = enumSetting("BuriedTreasure", BiomeConfig.StructureRule.auto);
+    public static final Setting<BiomeConfig.RuinedPortalType> RUINED_PORTAL_TYPE = enumSetting("RuinedPortalType", BiomeConfig.RuinedPortalType.auto);
+    public static final Setting<BiomeConfig.StructureRule> TRAIL_RUINS = enumSetting("TrailRuins", BiomeConfig.StructureRule.auto);
+    public static final Setting<BiomeConfig.AbandonedCampType> ABANDONED_CAMP_TYPE = enumSetting("AbandonedCampType", BiomeConfig.AbandonedCampType.auto);
+    public static final Setting<BiomeConfig.StructureRule> ANCIENT_CITIES = enumSetting("AncientCities", BiomeConfig.StructureRule.auto);
+    public static final Setting<BiomeConfig.StructureRule> TRIAL_CHAMBERS = enumSetting("TrialChambers", BiomeConfig.StructureRule.auto);
 
     public static final Setting<SurfaceGenerator> SURFACE_AND_GROUND_CONTROL = surfaceGeneratorSetting("SurfaceAndGroundControl");
     public static final Setting<ReplacedBlocksMatrix> REPLACED_BLOCKS = replacedBlocksSetting("ReplacedBlocks");
