@@ -60,6 +60,26 @@ public final class TCStructures
     }
 
     /**
+     * Gets whether TerrainControl places a structure in its worlds (as its configs say): 1.12's and 26.3's newer overworld ones.
+     *
+     * @param structure The structure.
+     * @return Whether it does.
+     */
+    public static boolean places(final ResourceKey<Structure> structure)
+    {
+        final String name = name(structure);
+        return name.startsWith(CAMP) || switch (name)
+        {
+            case "village_plains", "village_desert", "village_taiga", "village_savanna", "village_snowy", "pillager_outpost",
+                    "shipwreck", "shipwreck_beached", "ocean_ruin_cold", "ocean_ruin_warm", "buried_treasure", "ruined_portal",
+                    "ruined_portal_desert", "ruined_portal_jungle", "ruined_portal_swamp", "ruined_portal_mountain",
+                    "ruined_portal_ocean", "trail_ruins", "ancient_city", "trial_chambers", "desert_pyramid", "jungle_pyramid",
+                    "swamp_hut", "igloo", "mineshaft", "mineshaft_mesa", "stronghold", "monument", "mansion", "fortress" -> true;
+            default -> false;
+        };
+    }
+
+    /**
      * Gets whether a world has a structure at all.
      *
      * @param world     The world.
@@ -167,7 +187,9 @@ public final class TCStructures
             case "mineshaft" -> config.mineshaftType == BiomeConfig.MineshaftType.normal;
             case "mineshaft_mesa" -> config.mineshaftType == BiomeConfig.MineshaftType.mesa;
             case "stronghold" -> config.strongholdsEnabled;
-            case "monument", "mansion", "fortress" -> structure.value().biomes().contains(biome);
+            // 26.3's own biomes for them (TCStructureBiomes adds TerrainControl's to what the structures say, for /locate)
+            case "monument", "mansion", "fortress" -> structure.value().modifiableStructureInfo().getOriginalStructureInfo()
+                    .structureSettings().biomes().contains(biome);
             default -> false;
         };
     }

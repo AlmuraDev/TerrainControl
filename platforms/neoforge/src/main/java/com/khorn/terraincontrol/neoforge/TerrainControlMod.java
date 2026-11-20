@@ -37,8 +37,13 @@ public final class TerrainControlMod
     private static final DeferredRegister<MapCodec<? extends BiomeModifier>> BIOME_MODIFIERS =
             DeferredRegister.create(NeoForgeRegistries.Keys.BIOME_MODIFIER_SERIALIZERS, ID);
 
+    private static final DeferredRegister<MapCodec<? extends net.neoforged.neoforge.common.world.StructureModifier>> STRUCTURE_MODIFIERS =
+            DeferredRegister.create(NeoForgeRegistries.Keys.STRUCTURE_MODIFIER_SERIALIZERS, ID);
+
     static
     {
+        // TerrainControl's biomes in its structures' biomes, for 26.3's /locate
+        STRUCTURE_MODIFIERS.register("biomes_for_structures", () -> com.khorn.terraincontrol.neoforge.generator.TCStructureBiomes.CODEC);
         // Other mods' mobs in TerrainControl's biomes, as their configs list them
         BIOME_MODIFIERS.register("mod_mobs", () -> ModMobs.CODEC);
         CHUNK_GENERATORS.register(ID, () -> TCChunkGenerator.CODEC);
@@ -51,6 +56,7 @@ public final class TerrainControlMod
         CHUNK_GENERATORS.register(modBus);
         BIOME_SOURCES.register(modBus);
         BIOME_MODIFIERS.register(modBus);
+        STRUCTURE_MODIFIERS.register(modBus);
         modBus.addListener(TerrainControlMod::onCommonSetup);
         // Saplings grow into their biome's own trees
         NeoForge.EVENT_BUS.addListener(SaplingListener::onGrow);
